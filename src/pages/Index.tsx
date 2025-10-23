@@ -23,7 +23,6 @@ const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [generation, setGeneration] = useState(0);
-  const [fitnessScore, setFitnessScore] = useState(0);
   const [avgWaitTime, setAvgWaitTime] = useState(0);
   const [throughput, setThroughput] = useState(0);
   const [currentGreenLane, setCurrentGreenLane] = useState(0);
@@ -101,12 +100,11 @@ const Index = () => {
     const maxGenerations = 50;
     let cycleIndex = 0;
 
-    const interval = setInterval(() => {
+    const runCycle = () => {
       const best = ga.evolve(congestionLevels, emergencyFlags);
       currentGen++;
       
       setGeneration(currentGen);
-      setFitnessScore(best.fitness);
 
       // Determine lane priority order (emergency first, then by green time from GA)
       const laneOrder = lanes
@@ -143,26 +141,29 @@ const Index = () => {
 
       const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
       setAvgWaitTime(Math.round(totalWait / lanes.length));
-      setThroughput(prev => prev + Math.floor(Math.random() * 5) + 3);
+      setThroughput(prev => prev + Math.floor(Math.random() * 8) + 5);
       setCurrentGreenLane(currentLaneIdx + 1);
 
       cycleIndex++;
 
       if (currentGen >= maxGenerations) {
-        clearInterval(interval);
         setIsOptimizing(false);
         toast.success("Optimization complete!", {
           description: `Average wait time: ${Math.round(totalWait / lanes.length)}s`,
         });
+      } else {
+        // Dynamic timing: next cycle runs after current lane's green duration
+        setTimeout(runCycle, greenTime * 1000);
       }
-    }, 1200);
+    };
+
+    runCycle();
   };
 
   const reset = () => {
     setLaneCount(null);
     setLanes([]);
     setGeneration(0);
-    setFitnessScore(0);
     setAvgWaitTime(0);
     setThroughput(0);
     setCurrentGreenLane(0);
@@ -260,7 +261,6 @@ const Index = () => {
             <OptimizationPanel
               isOptimizing={isOptimizing}
               generation={generation}
-              fitnessScore={fitnessScore}
               avgWaitTime={avgWaitTime}
               throughput={throughput}
             />

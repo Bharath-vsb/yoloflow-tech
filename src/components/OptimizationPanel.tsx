@@ -6,7 +6,6 @@ import { Activity, Zap, Clock } from "lucide-react";
 interface OptimizationPanelProps {
   isOptimizing: boolean;
   generation: number;
-  fitnessScore: number;
   avgWaitTime: number;
   throughput: number;
 }
@@ -14,7 +13,6 @@ interface OptimizationPanelProps {
 export const OptimizationPanel = ({
   isOptimizing,
   generation,
-  fitnessScore,
   avgWaitTime,
   throughput,
 }: OptimizationPanelProps) => {
@@ -39,18 +37,18 @@ export const OptimizationPanel = ({
 
         <div className="space-y-2 p-4 bg-secondary rounded-lg">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Activity className="w-4 h-4" />
-            <span className="text-sm">Fitness Score</span>
-          </div>
-          <p className="text-3xl font-bold text-foreground">{fitnessScore.toFixed(2)}</p>
-        </div>
-
-        <div className="space-y-2 p-4 bg-secondary rounded-lg">
-          <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="w-4 h-4" />
             <span className="text-sm">Avg Wait Time</span>
           </div>
           <p className="text-3xl font-bold text-foreground">{avgWaitTime.toFixed(1)}s</p>
+        </div>
+
+        <div className="space-y-2 p-4 bg-secondary rounded-lg">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Activity className="w-4 h-4" />
+            <span className="text-sm">Throughput</span>
+          </div>
+          <p className="text-3xl font-bold text-foreground">{throughput}</p>
         </div>
       </div>
 
@@ -85,7 +83,9 @@ export const OptimizationPanel = ({
         </div>
         <div>
           <p className="text-sm text-muted-foreground mb-1">System Efficiency</p>
-          <p className="text-2xl font-bold text-primary">{Math.min(fitnessScore * 10, 99).toFixed(0)}%</p>
+          <p className="text-2xl font-bold text-primary">
+            {Math.min(100, Math.round((throughput / (generation * 10)) * 100))}%
+          </p>
         </div>
       </div>
     </Card>
