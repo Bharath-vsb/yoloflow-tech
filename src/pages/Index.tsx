@@ -108,12 +108,12 @@ const Index = () => {
 
       // Determine lane priority order (emergency first, then by green time from GA)
       const laneOrder = lanes
-        .map((lane, idx) => ({ idx, priority: lane.hasEmergency ? 1000 : best.greenTimes[idx] }))
-        .sort((a, b) => b.priority - a.priority)
-        .map(item => item.idx);
+        .map((lane, idx) => ({ idx, priority: lane.hasEmergency ? 1000 : best.greenTimes[idx], greenTime: Math.round(best.greenTimes[idx]) }))
+        .sort((a, b) => b.priority - a.priority);
 
-      const currentLaneIdx = laneOrder[cycleIndex % laneOrder.length];
-      const nextLaneIdx = laneOrder[(cycleIndex + 1) % laneOrder.length];
+      const currentLaneIdx = laneOrder[cycleIndex % laneOrder.length].idx;
+      const nextLaneIdx = laneOrder[(cycleIndex + 1) % laneOrder.length].idx;
+      const currentGreenTime = laneOrder[cycleIndex % laneOrder.length].greenTime;
 
       // Update signal states: one green, one yellow (next priority), rest red
       const newSignals = lanes.map((_, idx) => {
@@ -122,38 +122,73 @@ const Index = () => {
         return "red";
       });
 
-      // Calculate waiting times
-      const greenTime = best.greenTimes[currentLaneIdx];
+      // Calculate waiting times based on sum of green durations before each lane
       const newWaitTimes = lanes.map((_, idx) => {
         if (idx === currentLaneIdx) return 0;
-        const position = laneOrder.indexOf(idx);
-        const currentPosition = laneOrder.indexOf(currentLaneIdx);
-        const cyclesAway = (position - currentPosition + laneOrder.length) % laneOrder.length;
-        return Math.round(cyclesAway * (greenTime / laneOrder.length) * 10);
+        
+        const lanePosition = laneOrder.findIndex(item => item.idx === idx);
+        const currentPosition = cycleIndex % laneOrder.length;
+        
+        let waitTime = 0;
+        let pos = currentPosition;
+        
+        // Sum up green times of all lanes that will go before this one
+        while (pos !== lanePosition) {
+          waitTime += laneOrder[pos % laneOrder.length].greenTime;
+          pos = (pos + 1) % laneOrder.length;
+        }
+        
+        return waitTime;
       });
 
+      // Set initial values with full green duration
       setLanes(prev => prev.map((lane, idx) => ({
         ...lane,
         signalState: newSignals[idx] as "green" | "yellow" | "red",
         waitingTime: newWaitTimes[idx],
-        greenDuration: Math.round(best.greenTimes[idx]),
+        greenDuration: idx === currentLaneIdx ? currentGreenTime : Math.round(best.greenTimes[idx]),
       })));
+
+      setCurrentGreenLane(currentLaneIdx + 1);
+
+      // Countdown mechanism for movement time
+      let remainingTime = currentGreenTime;
+      const countdownInterval = setInterval(() => {
+        remainingTime--;
+        
+        // Update the current green lane's duration and all waiting times
+        setLanes(prev => prev.map((lane, idx) => {
+          if (idx === currentLaneIdx) {
+            return { ...lane, greenDuration: remainingTime };
+          } else if (lane.waitingTime > 0) {
+            return { ...lane, waitingTime: lane.waitingTime - 1 };
+          }
+          return lane;
+        }));
+
+        setAvgWaitTime(prev => Math.max(0, prev - 1));
+        
+        if (remainingTime <= 0) {
+          clearInterval(countdownInterval);
+        }
+      }, 1000);
 
       const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
       setAvgWaitTime(Math.round(totalWait / lanes.length));
       setThroughput(prev => prev + Math.floor(Math.random() * 8) + 5);
-      setCurrentGreenLane(currentLaneIdx + 1);
 
       cycleIndex++;
 
       if (currentGen >= maxGenerations) {
-        setIsOptimizing(false);
-        toast.success("Optimization complete!", {
-          description: `Average wait time: ${Math.round(totalWait / lanes.length)}s`,
-        });
+        setTimeout(() => {
+          setIsOptimizing(false);
+          toast.success("Optimization complete!", {
+            description: `Average wait time optimized`,
+          });
+        }, currentGreenTime * 1000);
       } else {
-        // Dynamic timing: next cycle runs after current lane's green duration
-        setTimeout(runCycle, greenTime * 1000);
+        // Next cycle runs after current lane's green duration completes
+        setTimeout(runCycle, currentGreenTime * 1000);
       }
     };
 
