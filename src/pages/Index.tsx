@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { TrafficLane } from "@/components/TrafficLane";
 import { OptimizationPanel } from "@/components/OptimizationPanel";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Play, RotateCcw, Activity } from "lucide-react";
+import { Play, RotateCcw, Activity, ArrowRight } from "lucide-react";
 import { analyzeTrafficImage, GeneticAlgorithm } from "@/utils/trafficAnalysis";
 
 interface LaneData {
@@ -12,26 +13,34 @@ interface LaneData {
   hasEmergency: boolean;
   congestionLevel: number;
   signalState: "green" | "yellow" | "red";
+  waitingTime: number;
 }
 
 const Index = () => {
-  const [lanes, setLanes] = useState<LaneData[]>(
-    Array.from({ length: 4 }, () => ({
-      image: null,
-      vehicleCount: 0,
-      hasEmergency: false,
-      congestionLevel: 0,
-      signalState: "red" as const,
-    }))
-  );
-
+  const [laneCount, setLaneCount] = useState<number | null>(null);
+  const [lanes, setLanes] = useState<LaneData[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [generation, setGeneration] = useState(0);
   const [fitnessScore, setFitnessScore] = useState(0);
   const [avgWaitTime, setAvgWaitTime] = useState(0);
   const [throughput, setThroughput] = useState(0);
+  const [currentGreenLane, setCurrentGreenLane] = useState(0);
   const [ga] = useState(() => new GeneticAlgorithm());
+
+  const initializeLanes = (count: number) => {
+    setLaneCount(count);
+    setLanes(
+      Array.from({ length: count }, () => ({
+        image: null,
+        vehicleCount: 0,
+        hasEmergency: false,
+        congestionLevel: 0,
+        signalState: "red" as const,
+        waitingTime: 0,
+      }))
+    );
+  };
 
   const handleImageUpload = async (laneNumber: number, file: File) => {
     setIsAnalyzing(true);
@@ -46,6 +55,7 @@ const Index = () => {
           ...updated[laneNumber - 1],
           image: file,
           ...analysis,
+          waitingTime: 0,
         };
         return updated;
       });
@@ -85,7 +95,8 @@ const Index = () => {
     const emergencyFlags = lanes.map(lane => lane.hasEmergency);
 
     let currentGen = 0;
-    const maxGenerations = 10;
+    const maxGenerations = 50;
+    let cycleIndex = 0;
 
     const interval = setInterval(() => {
       const best = ga.evolve(congestionLevels, emergencyFlags);
@@ -93,44 +104,64 @@ const Index = () => {
       
       setGeneration(currentGen);
       setFitnessScore(best.fitness);
-      setAvgWaitTime(45 - (currentGen * 2)); // Simulated improvement
-      setThroughput(prev => prev + Math.floor(Math.random() * 10) + 5);
 
-      // Update signal states based on optimization
-      const newSignals = best.greenTimes.map((time, idx) => {
-        if (lanes[idx].hasEmergency) return "green";
-        if (time > 50) return "green";
-        if (time > 30) return "yellow";
+      // Determine lane priority order (emergency first, then by green time from GA)
+      const laneOrder = lanes
+        .map((lane, idx) => ({ idx, priority: lane.hasEmergency ? 1000 : best.greenTimes[idx] }))
+        .sort((a, b) => b.priority - a.priority)
+        .map(item => item.idx);
+
+      const currentLaneIdx = laneOrder[cycleIndex % laneOrder.length];
+      const nextLaneIdx = laneOrder[(cycleIndex + 1) % laneOrder.length];
+
+      // Update signal states: one green, one yellow (next priority), rest red
+      const newSignals = lanes.map((_, idx) => {
+        if (idx === currentLaneIdx) return "green";
+        if (idx === nextLaneIdx) return "yellow";
         return "red";
+      });
+
+      // Calculate waiting times
+      const greenTime = best.greenTimes[currentLaneIdx];
+      const newWaitTimes = lanes.map((_, idx) => {
+        if (idx === currentLaneIdx) return 0;
+        const position = laneOrder.indexOf(idx);
+        const currentPosition = laneOrder.indexOf(currentLaneIdx);
+        const cyclesAway = (position - currentPosition + laneOrder.length) % laneOrder.length;
+        return Math.round(cyclesAway * (greenTime / laneOrder.length) * 10);
       });
 
       setLanes(prev => prev.map((lane, idx) => ({
         ...lane,
         signalState: newSignals[idx] as "green" | "yellow" | "red",
+        waitingTime: newWaitTimes[idx],
       })));
+
+      const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
+      setAvgWaitTime(Math.round(totalWait / lanes.length));
+      setThroughput(prev => prev + Math.floor(Math.random() * 5) + 3);
+      setCurrentGreenLane(currentLaneIdx + 1);
+
+      cycleIndex++;
 
       if (currentGen >= maxGenerations) {
         clearInterval(interval);
         setIsOptimizing(false);
         toast.success("Optimization complete!", {
-          description: `Best fitness: ${best.fitness.toFixed(2)}`,
+          description: `Average wait time: ${Math.round(totalWait / lanes.length)}s`,
         });
       }
-    }, 800);
+    }, 1200);
   };
 
   const reset = () => {
-    setLanes(Array.from({ length: 4 }, () => ({
-      image: null,
-      vehicleCount: 0,
-      hasEmergency: false,
-      congestionLevel: 0,
-      signalState: "red" as const,
-    })));
+    setLaneCount(null);
+    setLanes([]);
     setGeneration(0);
     setFitnessScore(0);
     setAvgWaitTime(0);
     setThroughput(0);
+    setCurrentGreenLane(0);
     setIsOptimizing(false);
     toast.info("System reset");
   };
@@ -148,46 +179,88 @@ const Index = () => {
               YOLO-based vehicle detection with genetic algorithm optimization
             </p>
           </div>
-          <div className="flex gap-3">
-            <Button
-              onClick={startOptimization}
-              disabled={isOptimizing || isAnalyzing}
-              size="lg"
-              className="gap-2"
-            >
-              <Play className="w-5 h-5" />
-              {isOptimizing ? "Optimizing..." : "Start Analysis"}
-            </Button>
-            <Button onClick={reset} variant="outline" size="lg" className="gap-2">
-              <RotateCcw className="w-5 h-5" />
-              Reset
-            </Button>
-          </div>
+          {laneCount !== null && (
+            <div className="flex gap-3">
+              <Button
+                onClick={startOptimization}
+                disabled={isOptimizing || isAnalyzing}
+                size="lg"
+                className="gap-2"
+              >
+                <Play className="w-5 h-5" />
+                {isOptimizing ? "Optimizing..." : "Start Analysis"}
+              </Button>
+              <Button onClick={reset} variant="outline" size="lg" className="gap-2">
+                <RotateCcw className="w-5 h-5" />
+                Reset
+              </Button>
+            </div>
+          )}
         </div>
 
-        {/* Traffic Lanes Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {lanes.map((lane, index) => (
-            <TrafficLane
-              key={index}
-              laneNumber={index + 1}
-              onImageUpload={handleImageUpload}
-              signalState={lane.signalState}
-              vehicleCount={lane.vehicleCount}
-              hasEmergency={lane.hasEmergency}
-              congestionLevel={lane.congestionLevel}
+        {/* Lane Selection */}
+        {laneCount === null ? (
+          <Card className="p-8">
+            <div className="text-center space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold mb-2">Select Number of Traffic Lanes</h2>
+                <p className="text-muted-foreground">Choose between 2 to 4 lanes for traffic monitoring</p>
+              </div>
+              <div className="flex justify-center gap-4">
+                {[2, 3, 4].map((count) => (
+                  <Button
+                    key={count}
+                    onClick={() => initializeLanes(count)}
+                    size="lg"
+                    variant="outline"
+                    className="h-24 w-24 text-2xl font-bold hover:scale-105 transition-transform"
+                  >
+                    {count}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <>
+            {/* Current Status */}
+            {isOptimizing && (
+              <Card className="p-4 bg-primary/10 border-primary/30">
+                <div className="flex items-center justify-center gap-3 text-sm">
+                  <Activity className="w-4 h-4 animate-pulse" />
+                  <span className="font-medium">
+                    Currently Active: Lane {currentGreenLane} (GREEN)
+                  </span>
+                </div>
+              </Card>
+            )}
+
+            {/* Traffic Lanes Grid */}
+            <div className={`grid gap-6 ${laneCount === 2 ? 'grid-cols-1 md:grid-cols-2' : laneCount === 3 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+              {lanes.map((lane, index) => (
+                <TrafficLane
+                  key={index}
+                  laneNumber={index + 1}
+                  onImageUpload={handleImageUpload}
+                  signalState={lane.signalState}
+                  vehicleCount={lane.vehicleCount}
+                  hasEmergency={lane.hasEmergency}
+                  congestionLevel={lane.congestionLevel}
+                  waitingTime={lane.waitingTime}
+                />
+              ))}
+            </div>
+
+            {/* Optimization Panel */}
+            <OptimizationPanel
+              isOptimizing={isOptimizing}
+              generation={generation}
+              fitnessScore={fitnessScore}
+              avgWaitTime={avgWaitTime}
+              throughput={throughput}
             />
-          ))}
-        </div>
-
-        {/* Optimization Panel */}
-        <OptimizationPanel
-          isOptimizing={isOptimizing}
-          generation={generation}
-          fitnessScore={fitnessScore}
-          avgWaitTime={avgWaitTime}
-          throughput={throughput}
-        />
+          </>
+        )}
 
         {/* Footer Info */}
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground pt-4">

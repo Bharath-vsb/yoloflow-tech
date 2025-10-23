@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, AlertTriangle, Car } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Upload, AlertTriangle, Car, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TrafficLaneProps {
@@ -11,6 +12,7 @@ interface TrafficLaneProps {
   vehicleCount: number;
   hasEmergency: boolean;
   congestionLevel: number;
+  waitingTime: number;
 }
 
 export const TrafficLane = ({
@@ -20,6 +22,7 @@ export const TrafficLane = ({
   vehicleCount,
   hasEmergency,
   congestionLevel,
+  waitingTime,
 }: TrafficLaneProps) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -111,16 +114,41 @@ export const TrafficLane = ({
       </div>
 
       {preview && (
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="flex items-center gap-2 p-2 bg-secondary rounded">
-            <Car className="w-4 h-4 text-primary" />
-            <span className="text-muted-foreground">Vehicles:</span>
-            <span className="font-semibold text-foreground">{vehicleCount}</span>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="flex items-center gap-2 p-2 bg-secondary rounded">
+              <Car className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">Vehicles:</span>
+              <span className="font-semibold text-foreground">{vehicleCount}</span>
+            </div>
+            <div className="flex items-center gap-2 p-2 bg-secondary rounded">
+              <div className="w-2 h-2 rounded-full bg-primary" />
+              <span className="text-muted-foreground">Congestion:</span>
+              <span className="font-semibold text-foreground">{getCongestionLabel()}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 p-2 bg-secondary rounded">
-            <div className="w-2 h-2 rounded-full bg-primary" />
-            <span className="text-muted-foreground">Congestion:</span>
-            <span className="font-semibold text-foreground">{getCongestionLabel()}</span>
+          
+          {/* Waiting Time Display */}
+          <div className="p-3 bg-muted/50 rounded-lg border border-border">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Waiting Time</span>
+              </div>
+              <span className="text-2xl font-bold text-foreground">
+                {waitingTime}s
+              </span>
+            </div>
+            {waitingTime > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Estimated time until green signal
+              </p>
+            )}
+            {waitingTime === 0 && signalState === "green" && (
+              <p className="text-xs text-signal-green font-medium">
+                Currently active - vehicles moving
+              </p>
+            )}
           </div>
         </div>
       )}
