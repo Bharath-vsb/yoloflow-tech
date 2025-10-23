@@ -115,13 +115,6 @@ const Index = () => {
       const nextLaneIdx = laneOrder[(cycleIndex + 1) % laneOrder.length].idx;
       const currentGreenTime = laneOrder[cycleIndex % laneOrder.length].greenTime;
 
-      // Update signal states: one green, one yellow (next priority), rest red
-      const newSignals = lanes.map((_, idx) => {
-        if (idx === currentLaneIdx) return "green";
-        if (idx === nextLaneIdx) return "yellow";
-        return "red";
-      });
-
       // Calculate waiting times based on sum of green durations before each lane
       const newWaitTimes = lanes.map((_, idx) => {
         if (idx === currentLaneIdx) return 0;
@@ -141,15 +134,18 @@ const Index = () => {
         return waitTime;
       });
 
-      // Set initial values with full green duration
+      // Set initial green durations and waiting times
       setLanes(prev => prev.map((lane, idx) => ({
         ...lane,
-        signalState: newSignals[idx] as "green" | "yellow" | "red",
         waitingTime: newWaitTimes[idx],
-        greenDuration: idx === currentLaneIdx ? currentGreenTime : Math.round(best.greenTimes[idx]),
+        greenDuration: Math.round(best.greenTimes[idx]),
       })));
 
       setCurrentGreenLane(currentLaneIdx + 1);
+
+      const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
+      setAvgWaitTime(Math.round(totalWait / lanes.length));
+      setThroughput(prev => prev + Math.floor(Math.random() * 8) + 5);
 
       // Countdown mechanism for movement time
       let remainingTime = currentGreenTime;
@@ -168,14 +164,35 @@ const Index = () => {
 
         setAvgWaitTime(prev => Math.max(0, prev - 1));
         
+        // When countdown reaches 0, change signal lights
         if (remainingTime <= 0) {
           clearInterval(countdownInterval);
+          
+          // Update signal states: one green, one yellow (next priority), rest red
+          const newSignals = lanes.map((_, idx) => {
+            if (idx === laneOrder[(cycleIndex + 1) % laneOrder.length].idx) return "green";
+            if (idx === laneOrder[(cycleIndex + 2) % laneOrder.length].idx) return "yellow";
+            return "red";
+          });
+
+          setLanes(prev => prev.map((lane, idx) => ({
+            ...lane,
+            signalState: newSignals[idx] as "green" | "yellow" | "red",
+          })));
         }
       }, 1000);
 
-      const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
-      setAvgWaitTime(Math.round(totalWait / lanes.length));
-      setThroughput(prev => prev + Math.floor(Math.random() * 8) + 5);
+      // Update initial signal states for current cycle
+      const initialSignals = lanes.map((_, idx) => {
+        if (idx === currentLaneIdx) return "green";
+        if (idx === nextLaneIdx) return "yellow";
+        return "red";
+      });
+
+      setLanes(prev => prev.map((lane, idx) => ({
+        ...lane,
+        signalState: initialSignals[idx] as "green" | "yellow" | "red",
+      })));
 
       cycleIndex++;
 
