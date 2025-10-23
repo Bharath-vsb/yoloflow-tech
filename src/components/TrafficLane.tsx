@@ -13,6 +13,7 @@ interface TrafficLaneProps {
   hasEmergency: boolean;
   congestionLevel: number;
   waitingTime: number;
+  greenDuration: number;
 }
 
 export const TrafficLane = ({
@@ -23,6 +24,7 @@ export const TrafficLane = ({
   hasEmergency,
   congestionLevel,
   waitingTime,
+  greenDuration,
 }: TrafficLaneProps) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -150,6 +152,24 @@ export const TrafficLane = ({
               </p>
             )}
           </div>
+
+          {/* Green Signal Duration */}
+          {greenDuration > 0 && (
+            <div className="p-3 bg-signal-green/10 rounded-lg border border-signal-green/30">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-signal-green animate-pulse" />
+                  <span className="text-sm font-medium text-foreground">Movement Time</span>
+                </div>
+                <span className="text-2xl font-bold text-signal-green">
+                  {greenDuration}s
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Time allocated for vehicles to move through this lane
+              </p>
+            </div>
+          )}
         </div>
       )}
     </Card>

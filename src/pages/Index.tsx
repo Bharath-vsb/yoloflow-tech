@@ -14,6 +14,7 @@ interface LaneData {
   congestionLevel: number;
   signalState: "green" | "yellow" | "red";
   waitingTime: number;
+  greenDuration: number;
 }
 
 const Index = () => {
@@ -38,6 +39,7 @@ const Index = () => {
         congestionLevel: 0,
         signalState: "red" as const,
         waitingTime: 0,
+        greenDuration: 0,
       }))
     );
   };
@@ -56,6 +58,7 @@ const Index = () => {
           image: file,
           ...analysis,
           waitingTime: 0,
+          greenDuration: 0,
         };
         return updated;
       });
@@ -135,6 +138,7 @@ const Index = () => {
         ...lane,
         signalState: newSignals[idx] as "green" | "yellow" | "red",
         waitingTime: newWaitTimes[idx],
+        greenDuration: Math.round(best.greenTimes[idx]),
       })));
 
       const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
@@ -247,6 +251,7 @@ const Index = () => {
                   hasEmergency={lane.hasEmergency}
                   congestionLevel={lane.congestionLevel}
                   waitingTime={lane.waitingTime}
+                  greenDuration={lane.greenDuration}
                 />
               ))}
             </div>
