@@ -158,9 +158,9 @@ const Index = () => {
         // Update the current green lane's duration, vehicle count, and all waiting times
         setLanes(prev => prev.map((lane, idx) => {
           if (idx === currentLaneIdx) {
-            // One vehicle moves every 3 seconds
+            // One vehicle moves every 1.5 seconds
             const elapsedTime = currentGreenTime - remainingTime;
-            const vehiclesMoved = Math.floor(elapsedTime / 3);
+            const vehiclesMoved = Math.floor(elapsedTime / 1.5);
             const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
             
             // More accurate congestion calculation
