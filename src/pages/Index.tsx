@@ -97,7 +97,7 @@ const Index = () => {
     const emergencyFlags = lanes.map(lane => lane.hasEmergency);
 
     let currentGen = 0;
-    const maxGenerations = 50;
+    const maxGenerations = 100; // More generations for better optimization
     let cycleIndex = 0;
 
     const runCycle = () => {
@@ -145,7 +145,10 @@ const Index = () => {
 
       const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
       setAvgWaitTime(Math.round(totalWait / lanes.length));
-      setThroughput(prev => prev + Math.floor(Math.random() * 8) + 5);
+      
+      // More realistic throughput calculation based on actual vehicles moved
+      const vehiclesMoved = Math.floor(currentGreenTime / 1.5); // 1 vehicle per 1.5 seconds
+      setThroughput(prev => prev + Math.min(vehiclesMoved, lanes[currentLaneIdx].vehicleCount));
 
       // Countdown mechanism for movement time
       let remainingTime = currentGreenTime;

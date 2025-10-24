@@ -37,9 +37,10 @@ interface Chromosome {
 
 export class GeneticAlgorithm {
   private population: Chromosome[] = [];
-  private populationSize = 50;
-  private mutationRate = 0.1;
-  private crossoverRate = 0.7;
+  private populationSize = 100; // Increased for better solutions
+  private mutationRate = 0.15; // Higher mutation for more exploration
+  private crossoverRate = 0.8; // Higher crossover for faster convergence
+  private eliteSize = 20; // Keep more elite solutions
 
   initialize(laneCount: number) {
     this.population = Array.from({ length: this.populationSize }, () => ({
@@ -54,21 +55,39 @@ export class GeneticAlgorithm {
     emergencyFlags: boolean[]
   ): number {
     let fitness = 0;
+    const totalTime = chromosome.greenTimes.reduce((sum, time) => sum + time, 0);
 
     chromosome.greenTimes.forEach((time, i) => {
-      // Reward longer green times for more congested lanes
-      fitness += time * (congestionLevels[i] / 100);
-
-      // CRITICAL PRIORITY for emergency vehicles (ambulance, fire engines, etc.)
+      // CRITICAL PRIORITY: Emergency vehicles get maximum priority
       if (emergencyFlags[i]) {
-        fitness += time * 10; // Increased from 2 to 10 for higher priority
+        fitness += time * 15; // Maximum priority multiplier
+        // Bonus for allocating sufficient time to emergency lanes
+        if (time >= 30) fitness += 100;
       }
 
-      // Penalize very short or very long times
-      if (time < 15 || time > 90) {
-        fitness -= 20;
+      // Reward proportional green time based on congestion
+      const congestionWeight = congestionLevels[i] / 100;
+      fitness += time * congestionWeight * 2;
+
+      // Bonus for efficient time allocation (20-70 seconds range)
+      if (time >= 20 && time <= 70) {
+        fitness += 10;
+      } else if (time < 15 || time > 90) {
+        // Heavy penalty for impractical times
+        fitness -= 50;
+      }
+
+      // Reward balanced distribution (avoid one lane taking all time)
+      const timeRatio = time / totalTime;
+      if (timeRatio > 0.15 && timeRatio < 0.4) {
+        fitness += 15;
       }
     });
+
+    // Penalty for extremely long total cycle time
+    if (totalTime > 300) {
+      fitness -= (totalTime - 300) * 0.5;
+    }
 
     return fitness;
   }
@@ -79,11 +98,11 @@ export class GeneticAlgorithm {
       chromosome.fitness = this.calculateFitness(chromosome, congestionLevels, emergencyFlags);
     });
 
-    // Sort by fitness
+    // Sort by fitness (descending)
     this.population.sort((a, b) => b.fitness - a.fitness);
 
-    // Keep top performers
-    const newPopulation: Chromosome[] = this.population.slice(0, 10);
+    // Keep elite solutions to preserve best performers
+    const newPopulation: Chromosome[] = this.population.slice(0, this.eliteSize);
 
     // Generate new population through crossover and mutation
     while (newPopulation.length < this.populationSize) {
