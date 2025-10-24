@@ -149,13 +149,22 @@ const Index = () => {
 
       // Countdown mechanism for movement time
       let remainingTime = currentGreenTime;
+      const initialVehicleCount = lanes[currentLaneIdx].vehicleCount;
+      
       const countdownInterval = setInterval(() => {
         remainingTime--;
         
-        // Update the current green lane's duration and all waiting times
+        // Update the current green lane's duration, vehicle count, and all waiting times
         setLanes(prev => prev.map((lane, idx) => {
           if (idx === currentLaneIdx) {
-            return { ...lane, greenDuration: remainingTime };
+            // Reduce vehicle count proportionally as time passes
+            const vehiclesRemaining = Math.max(0, Math.floor(initialVehicleCount * (remainingTime / currentGreenTime)));
+            return { 
+              ...lane, 
+              greenDuration: remainingTime,
+              vehicleCount: vehiclesRemaining,
+              congestionLevel: Math.max(0, Math.floor((vehiclesRemaining / initialVehicleCount) * lane.congestionLevel))
+            };
           } else if (lane.waitingTime > 0) {
             return { ...lane, waitingTime: lane.waitingTime - 1 };
           }

@@ -49,9 +49,9 @@ export class GeneticAlgorithm {
       // Reward longer green times for more congested lanes
       fitness += time * (congestionLevels[i] / 100);
 
-      // Heavy bonus for emergency vehicles
+      // CRITICAL PRIORITY for emergency vehicles (ambulance, fire engines, etc.)
       if (emergencyFlags[i]) {
-        fitness += time * 2;
+        fitness += time * 10; // Increased from 2 to 10 for higher priority
       }
 
       // Penalize very short or very long times
