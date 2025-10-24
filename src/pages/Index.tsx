@@ -163,11 +163,19 @@ const Index = () => {
             const vehiclesMoved = Math.floor(elapsedTime / 3);
             const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
             
+            // More accurate congestion calculation
+            // Prevent division by zero and maintain proportion
+            let newCongestion = 0;
+            if (initialVehicleCount > 0 && vehiclesRemaining > 0) {
+              const remainingRatio = vehiclesRemaining / initialVehicleCount;
+              newCongestion = Math.round(remainingRatio * initialCongestion);
+            }
+            
             return { 
               ...lane, 
               greenDuration: remainingTime,
               vehicleCount: vehiclesRemaining,
-              congestionLevel: Math.max(0, Math.floor((vehiclesRemaining / initialVehicleCount) * initialCongestion))
+              congestionLevel: newCongestion
             };
           } else if (lane.waitingTime > 0) {
             return { ...lane, waitingTime: lane.waitingTime - 1 };
