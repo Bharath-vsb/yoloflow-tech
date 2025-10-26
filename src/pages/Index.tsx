@@ -101,14 +101,30 @@ const Index = () => {
     let cycleIndex = 0;
 
     const runCycle = () => {
+      // Check if all lanes have 0 vehicles - stop optimization
+      const totalVehicles = lanes.reduce((sum, lane) => sum + lane.vehicleCount, 0);
+      if (totalVehicles === 0) {
+        setIsOptimizing(false);
+        toast.success("All lanes cleared!", {
+          description: "Traffic optimization complete - no vehicles remaining",
+        });
+        return;
+      }
+
       const best = ga.evolve(congestionLevels, emergencyFlags);
       currentGen++;
       
       setGeneration(currentGen);
 
-      // Determine lane priority order (emergency first, then by green time from GA)
+      // Determine lane priority order (emergency first, then by congestion)
       const laneOrder = lanes
-        .map((lane, idx) => ({ idx, priority: lane.hasEmergency ? 1000 : best.greenTimes[idx], greenTime: Math.round(best.greenTimes[idx]) }))
+        .map((lane, idx) => ({ 
+          idx, 
+          priority: lane.hasEmergency ? 1000 : lane.congestionLevel, 
+          vehicleCount: lane.vehicleCount,
+          // Optimized green time: 1.5 seconds per vehicle
+          greenTime: Math.max(5, Math.ceil(lane.vehicleCount * 1.5)) // Minimum 5s for signal change
+        }))
         .sort((a, b) => b.priority - a.priority);
 
       const currentLaneIdx = laneOrder[cycleIndex % laneOrder.length].idx;
@@ -138,7 +154,7 @@ const Index = () => {
       setLanes(prev => prev.map((lane, idx) => ({
         ...lane,
         waitingTime: newWaitTimes[idx],
-        greenDuration: Math.round(best.greenTimes[idx]),
+        greenDuration: laneOrder.find(item => item.idx === idx)?.greenTime || 0,
       })));
 
       setCurrentGreenLane(currentLaneIdx + 1);
