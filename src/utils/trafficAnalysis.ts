@@ -7,9 +7,20 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   // Simulate processing delay
   await new Promise(resolve => setTimeout(resolve, 1500));
 
-  // More realistic vehicle detection with better distribution
-  // Base vehicle count: 5-35 vehicles with weighted probability
-  const baseCount = Math.floor(Math.random() * 31) + 5;
+  // Optimized vehicle detection with weighted bell curve distribution
+  // Most traffic falls in the 12-25 vehicle range (normal traffic)
+  // Using Box-Muller transform for normal distribution
+  const random1 = Math.random();
+  const random2 = Math.random();
+  const gaussian = Math.sqrt(-2 * Math.log(random1)) * Math.cos(2 * Math.PI * random2);
+  
+  // Mean: 18 vehicles, Standard deviation: 6 vehicles
+  const mean = 18;
+  const stdDev = 6;
+  const normalCount = Math.round(gaussian * stdDev + mean);
+  
+  // Clamp between 5-35 vehicles for realistic bounds
+  const baseCount = Math.max(5, Math.min(35, normalCount));
   const hasEmergency = Math.random() > 0.85; // 15% chance of emergency vehicle
   
   // Calculate congestion based on vehicle density (normalized to max 35 vehicles)
