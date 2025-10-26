@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { TrafficLane } from "@/components/TrafficLane";
 import { OptimizationPanel } from "@/components/OptimizationPanel";
+import { OptimizationResults } from "@/components/OptimizationResults";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -27,6 +28,9 @@ const Index = () => {
   const [throughput, setThroughput] = useState(0);
   const [currentGreenLane, setCurrentGreenLane] = useState(0);
   const [ga] = useState(() => new GeneticAlgorithm());
+  const [showResults, setShowResults] = useState(false);
+  const [optimizationStartTime, setOptimizationStartTime] = useState<number>(0);
+  const [totalVehiclesAtStart, setTotalVehiclesAtStart] = useState(0);
 
   const initializeLanes = (count: number) => {
     setLaneCount(count);
@@ -85,14 +89,27 @@ const Index = () => {
       return;
     }
 
-    // Reset metrics before starting
+    // Calculate total vehicles at start
+    const totalVehicles = lanes.reduce((sum, lane) => sum + lane.vehicleCount, 0);
+    
+    if (totalVehicles === 0) {
+      toast.error("No vehicles detected in any lane");
+      return;
+    }
+
+    // Reset metrics and results before starting
+    setShowResults(false);
     setIsOptimizing(true);
     setGeneration(0);
     setAvgWaitTime(0);
     setThroughput(0);
     setCurrentGreenLane(0);
+    setOptimizationStartTime(Date.now());
+    setTotalVehiclesAtStart(totalVehicles);
     
-    toast.success("Starting genetic algorithm optimization...");
+    toast.success("Starting genetic algorithm optimization...", {
+      description: `Optimizing traffic flow for ${totalVehicles} vehicles`,
+    });
     
     // Initialize GA and begin optimization
     ga.initialize(laneCount || 4);
@@ -108,10 +125,14 @@ const Index = () => {
     let cycleIndex = 0;
 
     const runCycle = () => {
-      // Check if all lanes have 0 vehicles - stop optimization
+      // Check if all lanes have 0 vehicles - stop optimization and show results
       const totalVehicles = lanes.reduce((sum, lane) => sum + lane.vehicleCount, 0);
       if (totalVehicles === 0) {
+        const optimizationTime = Math.round((Date.now() - optimizationStartTime) / 1000);
+        
         setIsOptimizing(false);
+        setShowResults(true);
+        
         toast.success("All lanes cleared!", {
           description: "Traffic optimization complete - no vehicles remaining",
         });
@@ -267,6 +288,9 @@ const Index = () => {
     setThroughput(0);
     setCurrentGreenLane(0);
     setIsOptimizing(false);
+    setShowResults(false);
+    setOptimizationStartTime(0);
+    setTotalVehiclesAtStart(0);
     toast.info("System reset");
   };
 
@@ -357,12 +381,22 @@ const Index = () => {
             </div>
 
             {/* Optimization Panel */}
-            <OptimizationPanel
-              isOptimizing={isOptimizing}
-              generation={generation}
-              avgWaitTime={avgWaitTime}
-              throughput={throughput}
-            />
+            {!showResults ? (
+              <OptimizationPanel
+                isOptimizing={isOptimizing}
+                generation={generation}
+                avgWaitTime={avgWaitTime}
+                throughput={throughput}
+              />
+            ) : (
+              <OptimizationResults
+                totalVehiclesCleared={totalVehiclesAtStart}
+                finalAvgWaitTime={avgWaitTime}
+                totalThroughput={throughput}
+                generationsCompleted={generation}
+                optimizationTime={Math.round((Date.now() - optimizationStartTime) / 1000)}
+              />
+            )}
           </>
         )}
 
