@@ -56,6 +56,7 @@ const Index = () => {
           ...updated[laneNumber - 1],
           image: file,
           ...analysis,
+          signalState: "red", // Keep red until optimization starts
           waitingTime: 0,
           greenDuration: 0,
         };
@@ -84,11 +85,17 @@ const Index = () => {
       return;
     }
 
+    // Reset metrics before starting
     setIsOptimizing(true);
     setGeneration(0);
+    setAvgWaitTime(0);
+    setThroughput(0);
+    setCurrentGreenLane(0);
+    
     toast.success("Starting genetic algorithm optimization...");
     
-    ga.initialize(4);
+    // Initialize GA and begin optimization
+    ga.initialize(laneCount || 4);
     runGeneticAlgorithm();
   };
 
