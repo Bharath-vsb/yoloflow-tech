@@ -203,50 +203,32 @@ const Index = () => {
         remainingTime--;
         
         // Update ONLY the current green lane's duration, vehicle count, and congestion
-        setLanes(prev => {
-          const updatedLanes = prev.map((lane, idx) => {
-            if (idx === currentLaneIdx && lane.signalState === "green") {
-              // Vehicle movement: 1 vehicle every 1.5 seconds
-              const elapsedTime = currentGreenTime - remainingTime;
-              const vehiclesMoved = Math.floor(elapsedTime / 1.5);
-              const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
-              
-              // Accurate congestion calculation based on remaining vehicles
-              let newCongestion = 0;
-              if (initialVehicleCount > 0 && vehiclesRemaining > 0) {
-                const remainingRatio = vehiclesRemaining / initialVehicleCount;
-                newCongestion = Math.round(remainingRatio * initialCongestion);
-              }
-              
-              return { 
-                ...lane, 
-                greenDuration: remainingTime,
-                vehicleCount: vehiclesRemaining,
-                congestionLevel: newCongestion
-              };
-            } else if (lane.waitingTime > 0) {
-              // Other lanes only reduce waiting time, no vehicle movement
-              return { ...lane, waitingTime: lane.waitingTime - 1 };
+        setLanes(prev => prev.map((lane, idx) => {
+          if (idx === currentLaneIdx && lane.signalState === "green") {
+            // Vehicle movement: 1 vehicle every 1.5 seconds
+            const elapsedTime = currentGreenTime - remainingTime;
+            const vehiclesMoved = Math.floor(elapsedTime / 1.5);
+            const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
+            
+            // Accurate congestion calculation based on remaining vehicles
+            let newCongestion = 0;
+            if (initialVehicleCount > 0 && vehiclesRemaining > 0) {
+              const remainingRatio = vehiclesRemaining / initialVehicleCount;
+              newCongestion = Math.round(remainingRatio * initialCongestion);
             }
-            return lane;
-          });
-
-          // Check if all lanes have reached 0 vehicles
-          const totalVehiclesRemaining = updatedLanes.reduce((sum, lane) => sum + lane.vehicleCount, 0);
-          if (totalVehiclesRemaining === 0) {
-            clearInterval(countdownInterval);
-            const optimizationTime = Math.round((Date.now() - optimizationStartTime) / 1000);
             
-            setIsOptimizing(false);
-            setShowResults(true);
-            
-            toast.success("All lanes cleared!", {
-              description: "Traffic optimization complete - no vehicles remaining",
-            });
+            return { 
+              ...lane, 
+              greenDuration: remainingTime,
+              vehicleCount: vehiclesRemaining,
+              congestionLevel: newCongestion
+            };
+          } else if (lane.waitingTime > 0) {
+            // Other lanes only reduce waiting time, no vehicle movement
+            return { ...lane, waitingTime: lane.waitingTime - 1 };
           }
-
-          return updatedLanes;
-        });
+          return lane;
+        }));
 
         setAvgWaitTime(prev => Math.max(0, prev - 1));
         
