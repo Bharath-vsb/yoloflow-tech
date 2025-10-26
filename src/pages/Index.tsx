@@ -166,7 +166,7 @@ const Index = () => {
       const vehiclesMoved = Math.floor(currentGreenTime / 1.5); // 1 vehicle per 1.5 seconds
       setThroughput(prev => prev + Math.min(vehiclesMoved, lanes[currentLaneIdx].vehicleCount));
 
-      // Countdown mechanism for movement time
+      // Countdown mechanism for green light lane only
       let remainingTime = currentGreenTime;
       const initialVehicleCount = lanes[currentLaneIdx].vehicleCount;
       const initialCongestion = lanes[currentLaneIdx].congestionLevel;
@@ -174,16 +174,15 @@ const Index = () => {
       const countdownInterval = setInterval(() => {
         remainingTime--;
         
-        // Update the current green lane's duration, vehicle count, and all waiting times
+        // Update ONLY the current green lane's duration, vehicle count, and congestion
         setLanes(prev => prev.map((lane, idx) => {
-          if (idx === currentLaneIdx) {
-            // One vehicle moves every 1.5 seconds
+          if (idx === currentLaneIdx && lane.signalState === "green") {
+            // Vehicle movement: 1 vehicle every 1.5 seconds
             const elapsedTime = currentGreenTime - remainingTime;
             const vehiclesMoved = Math.floor(elapsedTime / 1.5);
             const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
             
-            // More accurate congestion calculation
-            // Prevent division by zero and maintain proportion
+            // Accurate congestion calculation based on remaining vehicles
             let newCongestion = 0;
             if (initialVehicleCount > 0 && vehiclesRemaining > 0) {
               const remainingRatio = vehiclesRemaining / initialVehicleCount;
@@ -197,6 +196,7 @@ const Index = () => {
               congestionLevel: newCongestion
             };
           } else if (lane.waitingTime > 0) {
+            // Other lanes only reduce waiting time, no vehicle movement
             return { ...lane, waitingTime: lane.waitingTime - 1 };
           }
           return lane;
