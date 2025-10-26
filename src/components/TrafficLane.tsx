@@ -28,6 +28,9 @@ export const TrafficLane = ({
 }: TrafficLaneProps) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Show upload interface when vehicle count is 0
+  const showUploadInterface = !preview || vehicleCount === 0;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -95,7 +98,13 @@ export const TrafficLane = ({
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
-        {preview ? (
+        {showUploadInterface && vehicleCount === 0 ? (
+          <label className="flex flex-col items-center justify-center aspect-video cursor-pointer hover:bg-muted/50 transition-colors bg-muted/30">
+            <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+            <span className="text-sm text-muted-foreground">Lane cleared! Upload new traffic image</span>
+            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          </label>
+        ) : preview ? (
           <div className="relative aspect-video">
             <img src={preview} alt={`Lane ${laneNumber}`} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
@@ -105,12 +114,30 @@ export const TrafficLane = ({
                 <span className="text-sm font-semibold">EMERGENCY</span>
               </div>
             )}
+            {vehicleCount === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+                <Button
+                  onClick={() => document.getElementById(`lane-${laneNumber}-input`)?.click()}
+                  size="lg"
+                  className="gap-2"
+                >
+                  <Upload className="w-5 h-5" />
+                  Upload New Image
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <label className="flex flex-col items-center justify-center aspect-video cursor-pointer hover:bg-muted/50 transition-colors">
             <Upload className="w-8 h-8 text-muted-foreground mb-2" />
             <span className="text-sm text-muted-foreground">Upload traffic image</span>
-            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+            <input 
+              id={`lane-${laneNumber}-input`}
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleFileChange} 
+            />
           </label>
         )}
       </div>

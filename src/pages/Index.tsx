@@ -217,6 +217,13 @@ const Index = () => {
               newCongestion = Math.round(remainingRatio * initialCongestion);
             }
             
+            // Show toast when lane is cleared
+            if (vehiclesRemaining === 0 && initialVehicleCount > 0) {
+              toast.success(`Lane ${currentLaneIdx + 1} cleared!`, {
+                description: "You can upload a new image for this lane",
+              });
+            }
+            
             return { 
               ...lane, 
               greenDuration: remainingTime,
