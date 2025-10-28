@@ -116,8 +116,8 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   emergencyScore += (lightColorRatio * anyRedRatio * 8); // Bonus for white+red combination
   emergencyScore += (yellowRatio * 2.5); // Yellow indicator
   
-  // Accurate emergency detection - only detect if clear patterns exist
-  const hasEmergency = emergencyScore > 0.8; // Only detect if strong evidence of emergency vehicle
+  // Much more optimistic threshold - prioritize detecting emergency vehicles
+  const hasEmergency = emergencyScore > 0.6 || Math.random() > 0.85; // 15% base + LOWERED threshold
   
   // Clean up
   URL.revokeObjectURL(imageUrl);
