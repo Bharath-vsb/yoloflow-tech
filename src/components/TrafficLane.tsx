@@ -76,23 +76,32 @@ export const TrafficLane = ({
   };
 
   return (
-    <Card className={`p-4 space-y-4 bg-card transition-all ${
+    <Card className={`relative p-4 space-y-4 bg-card transition-all ${
       hasEmergency 
-        ? "border-2 border-emergency shadow-lg shadow-emergency/20 ring-2 ring-emergency/30" 
+        ? "border-4 border-emergency shadow-2xl shadow-emergency/50 ring-4 ring-emergency/40 animate-pulse" 
         : "border-border hover:border-primary/50"
     }`}>
+      {/* Emergency Alert Banner - Top of card */}
+      {hasEmergency && (
+        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10 bg-emergency px-4 py-2 rounded-full flex items-center gap-2 animate-pulse shadow-lg border-2 border-white">
+          <div className="w-3 h-3 rounded-full bg-white animate-ping absolute" />
+          <AlertTriangle className="w-5 h-5 relative z-10" />
+          <span className="text-sm font-black tracking-wider relative z-10">🚨 EMERGENCY ALERT 🚨</span>
+        </div>
+      )}
+      
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-semibold text-foreground">Lane {laneNumber}</h3>
           {hasEmergency && (
-            <Badge variant="destructive" className="bg-emergency animate-pulse gap-1">
+            <Badge variant="destructive" className="bg-emergency animate-pulse gap-1 text-xs font-bold">
               <AlertTriangle className="w-3 h-3" />
-              PRIORITY
+              PRIORITY LANE
             </Badge>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <div className={`w-4 h-4 rounded-full ${getSignalColor()} animate-pulse`} />
+          <div className={`w-4 h-4 rounded-full ${getSignalColor()} ${signalState === "green" ? "animate-pulse" : ""}`} />
           <Badge variant={signalState === "green" ? "default" : signalState === "yellow" ? "secondary" : "destructive"}>
             {signalState.toUpperCase()}
           </Badge>
@@ -121,10 +130,17 @@ export const TrafficLane = ({
             <img src={preview} alt={`Lane ${laneNumber}`} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
             {hasEmergency && (
-              <div className="absolute top-2 right-2 bg-emergency px-3 py-1.5 rounded-full flex items-center gap-2 animate-pulse shadow-lg">
-                <AlertTriangle className="w-5 h-5" />
-                <span className="text-sm font-bold">🚨 EMERGENCY</span>
-              </div>
+              <>
+                <div className="absolute inset-0 bg-emergency/20 animate-pulse pointer-events-none" />
+                <div className="absolute top-2 right-2 bg-emergency px-4 py-2 rounded-lg flex items-center gap-2 animate-pulse shadow-2xl border-2 border-white">
+                  <div className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  <AlertTriangle className="w-6 h-6" />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black">EMERGENCY VEHICLE</span>
+                    <span className="text-xs">Clear Lane Immediately</span>
+                  </div>
+                </div>
+              </>
             )}
             {vehicleCount === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">

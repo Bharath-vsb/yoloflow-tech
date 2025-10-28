@@ -5,7 +5,7 @@ import { OptimizationResults } from "@/components/OptimizationResults";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Play, RotateCcw, Activity, ArrowRight } from "lucide-react";
+import { Play, RotateCcw, Activity, ArrowRight, AlertTriangle } from "lucide-react";
 import { analyzeTrafficImage, GeneticAlgorithm } from "@/utils/trafficAnalysis";
 
 interface LaneData {
@@ -149,17 +149,23 @@ const Index = () => {
       const laneOrder = lanes
         .map((lane, idx) => ({ 
           idx, 
-          priority: lane.hasEmergency ? 10000 : lane.congestionLevel, // 10x emergency priority
+          priority: lane.hasEmergency ? 100000 : lane.congestionLevel, // 1000x emergency priority - ABSOLUTE FIRST
           vehicleCount: lane.vehicleCount,
-          // Emergency vehicles get faster processing: 1.2s per vehicle vs 1.5s
-          // This ensures ambulances and fire trucks clear faster
+          // Emergency vehicles get faster processing: 1.0s per vehicle vs 1.5s
+          // This ensures ambulances and fire trucks clear MUCH faster
           greenTime: lane.hasEmergency 
-            ? Math.max(15, Math.ceil(lane.vehicleCount * 1.2)) // Min 15s for emergency, faster clearing
+            ? Math.max(20, Math.ceil(lane.vehicleCount * 1.0)) // Min 20s for emergency, FASTEST clearing
             : Math.max(5, Math.ceil(lane.vehicleCount * 1.5)), // Regular: 1.5s per vehicle
           isEmergency: lane.hasEmergency
         }))
         .filter(lane => lane.vehicleCount > 0) // Only process lanes with vehicles
-        .sort((a, b) => b.priority - a.priority);
+        .sort((a, b) => {
+          // CRITICAL: Emergency lanes ALWAYS go first, regardless of any other factor
+          if (a.isEmergency && !b.isEmergency) return -1;
+          if (!a.isEmergency && b.isEmergency) return 1;
+          // Then sort by priority (congestion)
+          return b.priority - a.priority;
+        });
 
       const currentLaneIdx = laneOrder[cycleIndex % laneOrder.length].idx;
       const nextLaneIdx = laneOrder[(cycleIndex + 1) % laneOrder.length].idx;
@@ -211,9 +217,9 @@ const Index = () => {
         // Update ONLY the current green lane's duration, vehicle count, and congestion
         setLanes(prev => prev.map((lane, idx) => {
           if (idx === currentLaneIdx && lane.signalState === "green") {
-            // Vehicle movement: Emergency lanes clear faster (1 per 1.2s) vs regular (1 per 1.5s)
+            // Vehicle movement: Emergency lanes clear MUCH faster (1 per 1.0s) vs regular (1 per 1.5s)
             const elapsedTime = currentGreenTime - remainingTime;
-            const clearingRate = lane.hasEmergency ? 1.2 : 1.5;
+            const clearingRate = lane.hasEmergency ? 1.0 : 1.5; // Emergency vehicles move FASTEST
             const vehiclesMoved = Math.floor(elapsedTime / clearingRate);
             const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
             
@@ -365,6 +371,26 @@ const Index = () => {
           </Card>
         ) : (
           <>
+            {/* Emergency Alert Banner - Shows if ANY lane has emergency */}
+            {lanes.some(lane => lane.hasEmergency && lane.vehicleCount > 0) && (
+              <Card className="p-6 bg-emergency border-4 border-white shadow-2xl animate-pulse">
+                <div className="flex items-center justify-center gap-4">
+                  <div className="w-4 h-4 rounded-full bg-white animate-ping" />
+                  <AlertTriangle className="w-8 h-8 text-white" />
+                  <div className="flex flex-col">
+                    <span className="text-xl font-black text-white tracking-wider">
+                      🚨 EMERGENCY VEHICLE DETECTED 🚨
+                    </span>
+                    <span className="text-sm text-white/90">
+                      Priority lane clearance in progress - All other lanes on hold
+                    </span>
+                  </div>
+                  <AlertTriangle className="w-8 h-8 text-white" />
+                  <div className="w-4 h-4 rounded-full bg-white animate-ping" />
+                </div>
+              </Card>
+            )}
+
             {/* Current Status */}
             {isOptimizing && (
               <Card className="p-4 bg-primary/10 border-primary/30">
@@ -372,6 +398,7 @@ const Index = () => {
                   <Activity className="w-4 h-4 animate-pulse" />
                   <span className="font-medium">
                     Currently Active: Lane {currentGreenLane} (GREEN)
+                    {lanes[currentGreenLane - 1]?.hasEmergency && " - EMERGENCY PRIORITY"}
                   </span>
                 </div>
               </Card>
