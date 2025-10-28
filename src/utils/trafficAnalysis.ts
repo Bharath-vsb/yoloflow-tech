@@ -18,36 +18,73 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   });
 
   // Calculate image complexity factors
-  const fileSize = file.size; // Larger files often have more content
+  const fileSize = file.size;
   const dimensions = img.width * img.height;
-  const aspectRatio = img.width / img.height;
+  
+  // Analyze image data for emergency vehicle detection (Indian context)
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.drawImage(img, 0, 0);
+  
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  
+  // Detect emergency vehicle colors (red, white, blue patterns typical in Indian ambulances/police)
+  let redPixels = 0;
+  let whitePixels = 0;
+  let bluePixels = 0;
+  const sampleRate = 50; // Sample every 50th pixel for performance
+  
+  for (let i = 0; i < pixels.length; i += 4 * sampleRate) {
+    const r = pixels[i];
+    const g = pixels[i + 1];
+    const b = pixels[i + 2];
+    
+    // Detect red (ambulances, police lights)
+    if (r > 180 && g < 100 && b < 100) redPixels++;
+    
+    // Detect white (ambulance base, police vehicles)
+    if (r > 200 && g > 200 && b > 200) whitePixels++;
+    
+    // Detect blue (police lights)
+    if (b > 180 && r < 100 && g < 100) bluePixels++;
+  }
+  
+  const totalSampled = pixels.length / (4 * sampleRate);
+  const redRatio = redPixels / totalSampled;
+  const whiteRatio = whitePixels / totalSampled;
+  const blueRatio = bluePixels / totalSampled;
+  
+  // Emergency vehicle detection based on color patterns
+  const emergencyScore = (redRatio * 2) + (whiteRatio * 1.5) + (blueRatio * 2);
+  const hasEmergency = emergencyScore > 0.15 || Math.random() > 0.88; // 12% base + color detection
   
   // Clean up
   URL.revokeObjectURL(imageUrl);
 
-  // Use image properties to influence vehicle count
-  // Higher resolution and file size suggest more complex scenes with more vehicles
-  const complexityFactor = Math.min(1, (fileSize / 1000000) + (dimensions / 5000000));
+  // Indian traffic complexity factor (higher density expected)
+  const complexityFactor = Math.min(1, (fileSize / 800000) + (dimensions / 4000000));
   
-  // Weighted bell curve distribution adjusted by image complexity
+  // Weighted bell curve distribution for Indian traffic (typically more congested)
   const random1 = Math.random();
   const random2 = Math.random();
   const gaussian = Math.sqrt(-2 * Math.log(random1)) * Math.cos(2 * Math.PI * random2);
   
-  // Base mean influenced by image complexity (12-24 range)
-  const baseMean = 12 + (complexityFactor * 12);
-  const stdDev = 6;
+  // Higher base mean for Indian traffic (18-32 range) - accounting for 2-wheelers, autos, cars
+  const baseMean = 18 + (complexityFactor * 14);
+  const stdDev = 7;
   const normalCount = Math.round(gaussian * stdDev + baseMean);
   
-  // Clamp between 5-35 vehicles for realistic bounds
-  const baseCount = Math.max(5, Math.min(35, normalCount));
-  const hasEmergency = Math.random() > 0.85; // 15% chance of emergency vehicle
+  // Clamp between 8-45 vehicles for Indian traffic density
+  const baseCount = Math.max(8, Math.min(45, normalCount));
   
-  // Calculate congestion based on vehicle density (normalized to max 35 vehicles)
-  // Using more accurate formula: congestion increases exponentially with vehicle count
-  const densityRatio = Math.min(baseCount / 35, 1);
-  const baseCongestion = Math.floor(densityRatio * 85); // Base: 0-85%
-  const variability = Math.floor(Math.random() * 15); // Add 0-15% variance
+  // Calculate congestion for Indian traffic (normalized to max 45 vehicles)
+  // Indian roads tend to have higher congestion even with fewer vehicles due to mixed traffic
+  const densityRatio = Math.min(baseCount / 45, 1);
+  const baseCongestion = Math.floor(Math.pow(densityRatio, 0.8) * 90); // Non-linear: congestion felt earlier
+  const variability = Math.floor(Math.random() * 10); // Add 0-10% variance
   const congestionLevel = Math.min(100, baseCongestion + variability);
   
   // Emergency vehicles add to vehicle count
