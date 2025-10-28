@@ -154,37 +154,53 @@ export class GeneticAlgorithm {
   ): number {
     let fitness = 0;
     const totalTime = chromosome.greenTimes.reduce((sum, time) => sum + time, 0);
+    const hasAnyEmergency = emergencyFlags.some(flag => flag);
 
     chromosome.greenTimes.forEach((time, i) => {
-      // CRITICAL PRIORITY: Emergency vehicles get maximum priority
+      // ABSOLUTE PRIORITY: Emergency vehicles (ambulance/fire service) get maximum priority
       if (emergencyFlags[i]) {
-        fitness += time * 15; // Maximum priority multiplier
-        // Bonus for allocating sufficient time to emergency lanes
-        if (time >= 30) fitness += 100;
+        fitness += time * 30; // Doubled priority multiplier for critical emergency response
+        
+        // Extra bonus for sufficient time allocation (emergency vehicles need clear passage)
+        if (time >= 25) fitness += 200; // Increased bonus
+        if (time >= 40) fitness += 300; // Extra bonus for longer allocation
+        
+        // Emergency lanes should be processed immediately - huge bonus
+        fitness += 500; // Base emergency presence bonus
+      } else if (hasAnyEmergency) {
+        // Heavy penalty for non-emergency lanes when emergency exists
+        // This ensures emergency lanes always go first
+        fitness -= time * 5;
       }
 
-      // Reward proportional green time based on congestion
+      // Reward proportional green time based on congestion (lower weight when emergency present)
       const congestionWeight = congestionLevels[i] / 100;
-      fitness += time * congestionWeight * 2;
+      const congestionMultiplier = hasAnyEmergency ? 0.5 : 2; // Reduce congestion importance when emergency exists
+      fitness += time * congestionWeight * congestionMultiplier;
 
-      // Bonus for efficient time allocation (20-70 seconds range)
-      if (time >= 20 && time <= 70) {
-        fitness += 10;
-      } else if (time < 15 || time > 90) {
-        // Heavy penalty for impractical times
-        fitness -= 50;
+      // Bonus for efficient time allocation (adjusted for emergency context)
+      if (!emergencyFlags[i]) {
+        if (time >= 20 && time <= 70) {
+          fitness += 10;
+        } else if (time < 15 || time > 90) {
+          // Heavy penalty for impractical times
+          fitness -= 50;
+        }
       }
 
-      // Reward balanced distribution (avoid one lane taking all time)
-      const timeRatio = time / totalTime;
-      if (timeRatio > 0.15 && timeRatio < 0.4) {
-        fitness += 15;
+      // Reward balanced distribution only when no emergencies
+      if (!hasAnyEmergency) {
+        const timeRatio = time / totalTime;
+        if (timeRatio > 0.15 && timeRatio < 0.4) {
+          fitness += 15;
+        }
       }
     });
 
-    // Penalty for extremely long total cycle time
-    if (totalTime > 300) {
-      fitness -= (totalTime - 300) * 0.5;
+    // Penalty for extremely long total cycle time (relaxed for emergency scenarios)
+    const maxCycleTime = hasAnyEmergency ? 400 : 300;
+    if (totalTime > maxCycleTime) {
+      fitness -= (totalTime - maxCycleTime) * 0.5;
     }
 
     return fitness;

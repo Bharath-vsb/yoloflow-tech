@@ -70,8 +70,9 @@ const Index = () => {
       toast.success(`Lane ${laneNumber} analyzed: ${analysis.vehicleCount} vehicles detected`);
       
       if (analysis.hasEmergency) {
-        toast.error(`Emergency vehicle detected in Lane ${laneNumber}!`, {
-          description: "This lane will receive priority in signal timing",
+        toast.error(`🚨 EMERGENCY VEHICLE in Lane ${laneNumber}!`, {
+          description: "Ambulance/Fire Service detected - PRIORITY CLEARANCE will be given",
+          duration: 5000,
         });
       }
     } catch (error) {
@@ -144,15 +145,20 @@ const Index = () => {
       
       setGeneration(currentGen);
 
-      // Determine lane priority order (emergency first, then by congestion)
+      // Determine lane priority order (EMERGENCY ABSOLUTE FIRST, then by congestion)
       const laneOrder = lanes
         .map((lane, idx) => ({ 
           idx, 
-          priority: lane.hasEmergency ? 1000 : lane.congestionLevel, 
+          priority: lane.hasEmergency ? 10000 : lane.congestionLevel, // 10x emergency priority
           vehicleCount: lane.vehicleCount,
-          // Optimized green time: 1.5 seconds per vehicle
-          greenTime: Math.max(5, Math.ceil(lane.vehicleCount * 1.5)) // Minimum 5s for signal change
+          // Emergency vehicles get faster processing: 1.2s per vehicle vs 1.5s
+          // This ensures ambulances and fire trucks clear faster
+          greenTime: lane.hasEmergency 
+            ? Math.max(15, Math.ceil(lane.vehicleCount * 1.2)) // Min 15s for emergency, faster clearing
+            : Math.max(5, Math.ceil(lane.vehicleCount * 1.5)), // Regular: 1.5s per vehicle
+          isEmergency: lane.hasEmergency
         }))
+        .filter(lane => lane.vehicleCount > 0) // Only process lanes with vehicles
         .sort((a, b) => b.priority - a.priority);
 
       const currentLaneIdx = laneOrder[cycleIndex % laneOrder.length].idx;
@@ -205,9 +211,10 @@ const Index = () => {
         // Update ONLY the current green lane's duration, vehicle count, and congestion
         setLanes(prev => prev.map((lane, idx) => {
           if (idx === currentLaneIdx && lane.signalState === "green") {
-            // Vehicle movement: 1 vehicle every 1.5 seconds
+            // Vehicle movement: Emergency lanes clear faster (1 per 1.2s) vs regular (1 per 1.5s)
             const elapsedTime = currentGreenTime - remainingTime;
-            const vehiclesMoved = Math.floor(elapsedTime / 1.5);
+            const clearingRate = lane.hasEmergency ? 1.2 : 1.5;
+            const vehiclesMoved = Math.floor(elapsedTime / clearingRate);
             const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
             
             // Accurate congestion calculation based on remaining vehicles

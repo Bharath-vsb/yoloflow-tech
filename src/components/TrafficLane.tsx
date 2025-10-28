@@ -76,9 +76,21 @@ export const TrafficLane = ({
   };
 
   return (
-    <Card className="p-4 space-y-4 bg-card border-border hover:border-primary/50 transition-all">
+    <Card className={`p-4 space-y-4 bg-card transition-all ${
+      hasEmergency 
+        ? "border-2 border-emergency shadow-lg shadow-emergency/20 ring-2 ring-emergency/30" 
+        : "border-border hover:border-primary/50"
+    }`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-foreground">Lane {laneNumber}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-foreground">Lane {laneNumber}</h3>
+          {hasEmergency && (
+            <Badge variant="destructive" className="bg-emergency animate-pulse gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              PRIORITY
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <div className={`w-4 h-4 rounded-full ${getSignalColor()} animate-pulse`} />
           <Badge variant={signalState === "green" ? "default" : signalState === "yellow" ? "secondary" : "destructive"}>
@@ -109,9 +121,9 @@ export const TrafficLane = ({
             <img src={preview} alt={`Lane ${laneNumber}`} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
             {hasEmergency && (
-              <div className="absolute top-2 right-2 bg-emergency px-3 py-1 rounded-full flex items-center gap-2 animate-pulse">
-                <AlertTriangle className="w-4 h-4" />
-                <span className="text-sm font-semibold">EMERGENCY</span>
+              <div className="absolute top-2 right-2 bg-emergency px-3 py-1.5 rounded-full flex items-center gap-2 animate-pulse shadow-lg">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="text-sm font-bold">🚨 EMERGENCY</span>
               </div>
             )}
             {vehicleCount === 0 && (
