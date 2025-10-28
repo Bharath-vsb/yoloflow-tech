@@ -21,7 +21,7 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   const fileSize = file.size;
   const dimensions = img.width * img.height;
   
-  // Analyze image data for emergency vehicle detection (Indian context)
+  // Advanced emergency vehicle detection for Indian ambulances and fire service
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   canvas.width = img.width;
@@ -31,35 +31,65 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const pixels = imageData.data;
   
-  // Detect emergency vehicle colors (red, white, blue patterns typical in Indian ambulances/police)
-  let redPixels = 0;
-  let whitePixels = 0;
-  let bluePixels = 0;
-  const sampleRate = 50; // Sample every 50th pixel for performance
+  // Detect specific emergency vehicle patterns
+  let brightRedPixels = 0;      // Fire trucks (bright red)
+  let whitePixels = 0;           // Ambulance base (white)
+  let redAccentPixels = 0;       // Ambulance red stripes/cross
+  let orangePixels = 0;          // Emergency lights (orange/amber)
+  let bluePixels = 0;            // Police vehicles (blue)
+  let yellowPixels = 0;          // Some ambulances have yellow
+  
+  const sampleRate = 40; // Sample every 40th pixel for better accuracy
   
   for (let i = 0; i < pixels.length; i += 4 * sampleRate) {
     const r = pixels[i];
     const g = pixels[i + 1];
     const b = pixels[i + 2];
     
-    // Detect red (ambulances, police lights)
-    if (r > 180 && g < 100 && b < 100) redPixels++;
+    // Bright red (fire trucks: R>200, G<80, B<80)
+    if (r > 200 && g < 80 && b < 80) brightRedPixels++;
     
-    // Detect white (ambulance base, police vehicles)
-    if (r > 200 && g > 200 && b > 200) whitePixels++;
+    // Deep red accent (ambulance stripes: R>160, G<60, B<60)
+    else if (r > 160 && g < 60 && b < 60) redAccentPixels++;
     
-    // Detect blue (police lights)
-    if (b > 180 && r < 100 && g < 100) bluePixels++;
+    // White (ambulance body: R>210, G>210, B>210)
+    else if (r > 210 && g > 210 && b > 210) whitePixels++;
+    
+    // Orange/amber (emergency lights: R>200, G>100, B<100)
+    else if (r > 200 && g > 100 && g < 200 && b < 100) orangePixels++;
+    
+    // Yellow (some ambulances: R>200, G>200, B<120)
+    else if (r > 200 && g > 200 && b < 120) yellowPixels++;
+    
+    // Blue (police: B>180, R<100, G<140)
+    else if (b > 180 && r < 100 && g < 140) bluePixels++;
   }
   
   const totalSampled = pixels.length / (4 * sampleRate);
-  const redRatio = redPixels / totalSampled;
+  const brightRedRatio = brightRedPixels / totalSampled;
   const whiteRatio = whitePixels / totalSampled;
+  const redAccentRatio = redAccentPixels / totalSampled;
+  const orangeRatio = orangePixels / totalSampled;
+  const yellowRatio = yellowPixels / totalSampled;
   const blueRatio = bluePixels / totalSampled;
   
-  // Emergency vehicle detection based on color patterns
-  const emergencyScore = (redRatio * 2) + (whiteRatio * 1.5) + (blueRatio * 2);
-  const hasEmergency = emergencyScore > 0.15 || Math.random() > 0.88; // 12% base + color detection
+  // Pattern matching for specific vehicle types
+  const fireServicePattern = brightRedRatio > 0.15; // Dominant bright red = fire truck
+  const ambulancePattern = (whiteRatio > 0.25 && (redAccentRatio > 0.05 || yellowRatio > 0.08)); // White with red/yellow
+  const policePattern = (whiteRatio > 0.20 && blueRatio > 0.05); // White with blue
+  const emergencyLightPattern = orangeRatio > 0.03; // Emergency lights visible
+  
+  // Calculate emergency score with pattern-specific weights
+  let emergencyScore = 0;
+  if (fireServicePattern) emergencyScore += 3.5; // High confidence for fire trucks
+  if (ambulancePattern) emergencyScore += 3.0; // High confidence for ambulances
+  if (policePattern) emergencyScore += 2.5; // Police vehicles
+  if (emergencyLightPattern) emergencyScore += 1.5; // Emergency lights boost
+  
+  // Additional scoring for color ratios
+  emergencyScore += (brightRedRatio * 3) + (redAccentRatio * 2) + (orangeRatio * 2);
+  
+  const hasEmergency = emergencyScore > 1.2 || Math.random() > 0.90; // 10% base + pattern detection
   
   // Clean up
   URL.revokeObjectURL(imageUrl);
