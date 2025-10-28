@@ -47,27 +47,42 @@ const Index = () => {
     );
   };
 
-  const handleImageUpload = (laneNumber: number, file: File) => {
-    // Just store the image without analyzing yet
-    setLanes(prev => {
-      const updated = [...prev];
-      updated[laneNumber - 1] = {
-        ...updated[laneNumber - 1],
-        image: file,
-        vehicleCount: 0,
-        hasEmergency: false,
-        congestionLevel: 0,
-        signalState: "red",
-        waitingTime: 0,
-        greenDuration: 0,
-      };
-      return updated;
-    });
-    
-    toast.success(`Lane ${laneNumber} image uploaded. Click "Start Analysis" to begin.`);
+  const handleImageUpload = async (laneNumber: number, file: File) => {
+    setIsAnalyzing(true);
+    toast.info(`Analyzing Lane ${laneNumber} with YOLO...`);
+
+    try {
+      const analysis = await analyzeTrafficImage(file);
+      
+      setLanes(prev => {
+        const updated = [...prev];
+        updated[laneNumber - 1] = {
+          ...updated[laneNumber - 1],
+          image: file,
+          ...analysis,
+          signalState: "red", // Keep red until optimization starts
+          waitingTime: 0,
+          greenDuration: 0,
+        };
+        return updated;
+      });
+
+      toast.success(`Lane ${laneNumber} analyzed: ${analysis.vehicleCount} vehicles detected`);
+      
+      if (analysis.hasEmergency) {
+        toast.error(`🚨 EMERGENCY VEHICLE in Lane ${laneNumber}!`, {
+          description: "Ambulance/Fire Service detected - PRIORITY CLEARANCE will be given",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      toast.error("Failed to analyze image");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
-  const startOptimization = async () => {
+  const startOptimization = () => {
     const uploadedLanes = lanes.filter(lane => lane.image !== null);
     
     if (uploadedLanes.length === 0) {
@@ -75,88 +90,31 @@ const Index = () => {
       return;
     }
 
-    // Start analysis of all uploaded images
-    setIsAnalyzing(true);
-    toast.info("Analyzing traffic images with YOLO...");
-
-    try {
-      // Analyze all lanes with uploaded images
-      const analysisPromises = lanes.map(async (lane, idx) => {
-        if (lane.image) {
-          const analysis = await analyzeTrafficImage(lane.image);
-          return { idx, analysis };
-        }
-        return null;
-      });
-
-      const results = await Promise.all(analysisPromises);
-      
-      // Update lanes with analysis results
-      setLanes(prev => {
-        const updated = [...prev];
-        results.forEach(result => {
-          if (result) {
-            updated[result.idx] = {
-              ...updated[result.idx],
-              ...result.analysis,
-              signalState: "red",
-              waitingTime: 0,
-              greenDuration: 0,
-            };
-          }
-        });
-        return updated;
-      });
-
-      // Show detection results
-      results.forEach(result => {
-        if (result) {
-          const laneNum = result.idx + 1;
-          toast.success(`Lane ${laneNum}: ${result.analysis.vehicleCount} vehicles detected`);
-          
-          if (result.analysis.hasEmergency) {
-            toast.error(`🚨 EMERGENCY VEHICLE in Lane ${laneNum}!`, {
-              description: "Ambulance/Fire Service detected - ABSOLUTE PRIORITY",
-              duration: 5000,
-            });
-          }
-        }
-      });
-
-      // Calculate total vehicles after analysis
-      const totalVehicles = results.reduce((sum, result) => 
-        sum + (result?.analysis.vehicleCount || 0), 0
-      );
-      
-      if (totalVehicles === 0) {
-        toast.error("No vehicles detected in any lane");
-        setIsAnalyzing(false);
-        return;
-      }
-
-      setIsAnalyzing(false);
-
-      // Reset metrics and results before starting
-      setShowResults(false);
-      setIsOptimizing(true);
-      setGeneration(0);
-      setAvgWaitTime(0);
-      setThroughput(0);
-      setCurrentGreenLane(0);
-      setOptimizationStartTime(Date.now());
-      setTotalVehiclesAtStart(totalVehicles);
-      
-      toast.success("Starting genetic algorithm optimization...", {
-        description: `Optimizing traffic flow for ${totalVehicles} vehicles`,
-      });
-      
-      // Initialize GA and begin optimization
-      ga.initialize(laneCount || 4);
-      runGeneticAlgorithm();
-    } catch (error) {
-      toast.error("Failed to analyze images");
-      setIsAnalyzing(false);
+    // Calculate total vehicles at start
+    const totalVehicles = lanes.reduce((sum, lane) => sum + lane.vehicleCount, 0);
+    
+    if (totalVehicles === 0) {
+      toast.error("No vehicles detected in any lane");
+      return;
     }
+
+    // Reset metrics and results before starting
+    setShowResults(false);
+    setIsOptimizing(true);
+    setGeneration(0);
+    setAvgWaitTime(0);
+    setThroughput(0);
+    setCurrentGreenLane(0);
+    setOptimizationStartTime(Date.now());
+    setTotalVehiclesAtStart(totalVehicles);
+    
+    toast.success("Starting genetic algorithm optimization...", {
+      description: `Optimizing traffic flow for ${totalVehicles} vehicles`,
+    });
+    
+    // Initialize GA and begin optimization
+    ga.initialize(laneCount || 4);
+    runGeneticAlgorithm();
   };
 
   const runGeneticAlgorithm = () => {
