@@ -31,17 +31,17 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const pixels = imageData.data;
   
-  // Detect specific emergency vehicle patterns - OPTIMIZED for Indian ambulances
-  let brightRedPixels = 0;      // Fire trucks (bright red)
+  // Detect specific emergency vehicle patterns - OPTIMIZED for ambulance roof lights
+  let brightRedPixels = 0;      // Emergency roof lights (red) & fire trucks
   let whitePixels = 0;           // Ambulance base (white)
-  let redAccentPixels = 0;       // Ambulance red stripes/checkered pattern
-  let orangePixels = 0;          // Emergency lights & orange checkered pattern
-  let bluePixels = 0;            // Police vehicles (blue) + medical symbols
-  let yellowPixels = 0;          // Yellow checkered pattern on ambulances
+  let redAccentPixels = 0;       // Ambulance red markings
+  let orangePixels = 0;          // Amber emergency lights on roof
+  let bluePixels = 0;            // Emergency roof lights (blue) + medical symbols
+  let yellowPixels = 0;          // Yellow emergency lights
   let lightGrayPixels = 0;       // Off-white/light gray (common in real photos)
-  let anyRedPixels = 0;          // Any shade of red
-  let brightOrangePixels = 0;    // Bright orange (ambulance safety markings)
-  let mediumBluePixels = 0;      // Medium blue (Star of Life medical symbol)
+  let anyRedPixels = 0;          // Any shade of red including roof lights
+  let brightBluePixels = 0;      // Bright blue emergency roof lights
+  let deepRedPixels = 0;         // Deep red emergency roof lights
   
   // Large vehicle detection (vans, buses, trucks)
   let darkVehiclePixels = 0;     // Dark colored vehicles (trucks, vans)
@@ -58,19 +58,20 @@ export const analyzeTrafficImage = async (file: File): Promise<{
     const g = pixels[i + 1];
     const b = pixels[i + 2];
     
-    // Bright red (fire trucks: R>200, G<80, B<80)
+    // Bright red emergency lights (roof lights: R>200, G<80, B<80)
     if (r > 200 && g < 80 && b < 80) {
       brightRedPixels++;
       anyRedPixels++;
     }
     
-    // Medium-bright red (relaxed: R>180, G<100, B<100)
-    else if (r > 180 && g < 100 && b < 100) {
+    // Deep red emergency lights (roof lights: R>160, G<50, B<50)
+    else if (r > 160 && g < 50 && b < 50) {
+      deepRedPixels++;
       anyRedPixels++;
     }
     
-    // Deep red accent (ambulance stripes: R>150, G<70, B<70) - RELAXED
-    else if (r > 150 && g < 70 && b < 70) {
+    // Medium red (ambulance markings or roof lights: R>150, G<100, B<100)
+    else if (r > 150 && g < 100 && b < 100) {
       redAccentPixels++;
       anyRedPixels++;
     }
@@ -81,26 +82,20 @@ export const analyzeTrafficImage = async (file: File): Promise<{
     // Light gray/off-white (R>180, G>180, B>180) - captures real photo conditions
     else if (r > 180 && g > 180 && b > 180 && r < 220) lightGrayPixels++;
     
-    // Bright orange (ambulance checkered pattern & safety markings: R>200, G>100, B<80)
-    else if (r > 200 && g > 100 && g < 180 && b < 80) {
-      orangePixels++;
-      brightOrangePixels++;
-    }
+    // Amber/orange emergency roof lights (R>200, G>120, B<80)
+    else if (r > 200 && g > 120 && g < 200 && b < 80) orangePixels++;
     
-    // Orange/amber (emergency lights: R>180, G>80, B<120)
-    else if (r > 180 && g > 80 && g < 220 && b < 120) orangePixels++;
+    // Yellow emergency lights (R>200, G>200, B<100)
+    else if (r > 200 && g > 200 && b < 100) yellowPixels++;
     
-    // Yellow (ambulance checkered pattern: R>180, G>180, B<140)
-    else if (r > 180 && g > 180 && b < 140) yellowPixels++;
-    
-    // Medium blue (Star of Life medical symbol: B>120, R<140, G<160)
-    else if (b > 120 && b < 200 && r < 140 && g < 160) {
+    // Bright blue emergency roof lights (B>200, R<100, G<100)
+    else if (b > 200 && r < 100 && g < 100) {
+      brightBluePixels++;
       bluePixels++;
-      mediumBluePixels++;
     }
     
-    // Deep blue (police: B>160, R<120, G<160)
-    else if (b > 160 && r < 120 && g < 160) bluePixels++;
+    // Medium blue emergency lights (B>150, R<120, G<140)
+    else if (b > 150 && b < 220 && r < 120 && g < 140) bluePixels++;
     
     // === LARGE VEHICLE DETECTION ===
     
@@ -138,15 +133,15 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   
   const totalSampled = pixels.length / (4 * sampleRate);
   const brightRedRatio = brightRedPixels / totalSampled;
+  const deepRedRatio = deepRedPixels / totalSampled;
   const whiteRatio = whitePixels / totalSampled;
   const redAccentRatio = redAccentPixels / totalSampled;
   const orangeRatio = orangePixels / totalSampled;
   const yellowRatio = yellowPixels / totalSampled;
   const blueRatio = bluePixels / totalSampled;
+  const brightBlueRatio = brightBluePixels / totalSampled;
   const lightGrayRatio = lightGrayPixels / totalSampled;
   const anyRedRatio = anyRedPixels / totalSampled;
-  const brightOrangeRatio = brightOrangePixels / totalSampled;
-  const mediumBlueRatio = mediumBluePixels / totalSampled;
   
   // Large vehicle ratios
   const darkVehicleRatio = darkVehiclePixels / totalSampled;
@@ -156,90 +151,80 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   const brownRatio = brownPixels / totalSampled;
   const largeVehicleRatio = largeVehicleIndicators / totalSampled;
   
-  // ENHANCED AMBULANCE DETECTION - Optimized for Indian ambulances
-  // Pattern reference: White base + Red/White checkered (battenberg) + Orange/Yellow checkered + Blue medical symbol
+  // ENHANCED AMBULANCE DETECTION - Focus on emergency roof lights
+  // Detection priority: Emergency lights on top (red/blue) + white body base
   
-  // Combined white/light colors (ambulances in real photos)
+  // Combined white/light colors (ambulance body)
   const lightColorRatio = whiteRatio + (lightGrayRatio * 0.8);
   
-  // Fire service pattern (dominant bright red)
-  const fireServicePattern = brightRedRatio > 0.10 || (anyRedRatio > 0.18);
+  // Fire service pattern (dominant bright red body)
+  const fireServicePattern = brightRedRatio > 0.15 || (anyRedRatio > 0.20);
   
-  // ADVANCED AMBULANCE PATTERNS - Based on Indian ambulance color scheme
-  const ambulanceWhiteBase = lightColorRatio > 0.10; // White/light colored body (main color)
-  const ambulanceRedMarkings = anyRedRatio > 0.012 || redAccentRatio > 0.008; // Red checkered pattern
-  const ambulanceOrangeMarkings = brightOrangeRatio > 0.008 || orangeRatio > 0.015; // Orange checkered/safety
-  const ambulanceYellowMarkings = yellowRatio > 0.015; // Yellow checkered pattern
-  const ambulanceMedicalSymbol = mediumBlueRatio > 0.005; // Star of Life (blue)
+  // EMERGENCY ROOF LIGHTS DETECTION - Primary ambulance indicator
+  const hasRedRoofLights = (brightRedRatio > 0.008 || deepRedRatio > 0.006); // Red emergency lights visible
+  const hasBlueRoofLights = (brightBlueRatio > 0.005 || blueRatio > 0.008); // Blue emergency lights visible
+  const hasAmberLights = (orangeRatio > 0.008 || yellowRatio > 0.012); // Amber/yellow lights
+  const hasEmergencyLights = hasRedRoofLights || hasBlueRoofLights || hasAmberLights;
   
-  // Multi-pattern ambulance detection (8 strategies for maximum accuracy)
+  // Ambulance body patterns
+  const ambulanceWhiteBase = lightColorRatio > 0.10; // White/light colored body
+  const hasRedMarkings = anyRedRatio > 0.008; // Some red markings/stripes
+  
+  // AMBULANCE PATTERN - Focus on lights on top + white body
   const ambulancePattern = (
-    // Pattern 1: White + Red checkered (classic battenberg pattern)
-    (ambulanceWhiteBase && ambulanceRedMarkings && lightColorRatio > 0.15) ||
+    // Pattern 1: White body + Red roof lights (STRONGEST indicator)
+    (ambulanceWhiteBase && hasRedRoofLights) ||
     
-    // Pattern 2: White + Red + Orange (Indian ambulance standard)
-    (lightColorRatio > 0.12 && ambulanceRedMarkings && ambulanceOrangeMarkings) ||
+    // Pattern 2: White body + Blue roof lights
+    (ambulanceWhiteBase && hasBlueRoofLights) ||
     
-    // Pattern 3: White + Orange checkered pattern
-    (ambulanceWhiteBase && ambulanceOrangeMarkings && orangeRatio > 0.02) ||
+    // Pattern 3: White body + Any emergency lights
+    (lightColorRatio > 0.12 && hasEmergencyLights) ||
     
-    // Pattern 4: White + Red + Yellow (emergency lighting visible)
-    (lightColorRatio > 0.13 && anyRedRatio > 0.015 && yellowRatio > 0.02) ||
+    // Pattern 4: White body + Red AND Blue lights (perfect ambulance signature)
+    (ambulanceWhiteBase && hasRedRoofLights && hasBlueRoofLights) ||
     
-    // Pattern 5: White + Blue medical symbol (Star of Life)
-    (whiteRatio > 0.12 && ambulanceMedicalSymbol) ||
+    // Pattern 5: High white base + visible emergency lights + some red markings
+    (lightColorRatio > 0.15 && hasEmergencyLights && hasRedMarkings) ||
     
-    // Pattern 6: Full signature (White + Red + Orange + Blue)
-    (ambulanceWhiteBase && ambulanceRedMarkings && (ambulanceOrangeMarkings || ambulanceMedicalSymbol)) ||
-    
-    // Pattern 7: High white with any emergency color combination
-    (lightColorRatio > 0.25 && (ambulanceRedMarkings || ambulanceOrangeMarkings)) ||
-    
-    // Pattern 8: Checkered pattern detection (Red + Orange together = strong indicator)
-    (ambulanceRedMarkings && ambulanceOrangeMarkings && ambulanceYellowMarkings)
+    // Pattern 6: Strong emergency light presence (lights very visible)
+    ((brightRedRatio > 0.01 || brightBlueRatio > 0.008) && ambulanceWhiteBase)
   );
   
-  // Police pattern (white with blue)
-  const policePattern = (lightColorRatio > 0.15 && blueRatio > 0.03);
+  // Police pattern (white with strong blue lights)
+  const policePattern = (lightColorRatio > 0.12 && brightBlueRatio > 0.01);
   
-  // Emergency light pattern (orange/yellow lights)
-  const emergencyLightPattern = (orangeRatio > 0.025 || yellowRatio > 0.04 || brightOrangeRatio > 0.01);
-  
-  // Calculate emergency score with MAXIMUM priority for ambulances
+  // Calculate emergency score - MAXIMUM priority for visible emergency lights
   let emergencyScore = 0;
   
-  // AMBULANCE PRIORITY - HIGHEST weight (life-saving vehicles)
+  // AMBULANCE PRIORITY - Based on emergency roof lights
   if (ambulancePattern) {
-    emergencyScore += 10.0; // MAXIMUM PRIORITY for ambulances
+    emergencyScore += 12.0; // MAXIMUM PRIORITY for ambulances with lights
     
-    // Bonus scoring for specific ambulance features
-    if (ambulanceWhiteBase && ambulanceRedMarkings) emergencyScore += 5.0; // White + Red battenberg
-    if (ambulanceOrangeMarkings) emergencyScore += 3.5; // Orange checkered
-    if (ambulanceMedicalSymbol) emergencyScore += 2.5; // Blue medical symbol
-    if (ambulanceYellowMarkings) emergencyScore += 2.0; // Yellow checkered
-    if (lightColorRatio > 0.25) emergencyScore += 3.0; // Very white = likely ambulance
+    // MAJOR bonuses for visible emergency lights (primary indicator)
+    if (hasRedRoofLights) emergencyScore += 8.0; // Red lights on roof
+    if (hasBlueRoofLights) emergencyScore += 7.0; // Blue lights on roof
+    if (hasAmberLights) emergencyScore += 3.0; // Amber lights
+    if (hasRedRoofLights && hasBlueRoofLights) emergencyScore += 10.0; // Both red AND blue = definite ambulance
     
-    // Extra bonus for perfect ambulance signature (White + Red + Orange)
-    if (ambulanceWhiteBase && ambulanceRedMarkings && ambulanceOrangeMarkings) {
-      emergencyScore += 6.0; // STRONG ambulance indicator
-    }
+    // Bonus for white body (ambulance color)
+    if (ambulanceWhiteBase) emergencyScore += 4.0;
+    if (lightColorRatio > 0.20) emergencyScore += 3.0; // Very white body
   }
   
-  if (fireServicePattern) emergencyScore += 4.0; // Fire trucks
-  if (policePattern) emergencyScore += 3.5; // Police vehicles
-  if (emergencyLightPattern) emergencyScore += 2.5; // Emergency lights
+  if (fireServicePattern) emergencyScore += 5.0; // Fire trucks
+  if (policePattern) emergencyScore += 4.0; // Police vehicles
   
-  // Additional scoring for color ratios (ambulance-optimized)
-  emergencyScore += (anyRedRatio * 4.0); // Any red is important for ambulances
-  emergencyScore += (lightColorRatio * anyRedRatio * 15); // WHITE+RED = very strong ambulance indicator
-  emergencyScore += (lightColorRatio * orangeRatio * 12); // WHITE+ORANGE = strong ambulance indicator
-  emergencyScore += (brightOrangeRatio * 8); // Bright orange checkered pattern
-  emergencyScore += (orangeRatio * 4.0); // Orange emergency markings
-  emergencyScore += (whiteRatio * 2.5); // Pure white bonus
-  emergencyScore += (mediumBlueRatio * 6); // Medical symbol bonus
+  // Additional scoring for light visibility (KEY for ambulance detection)
+  emergencyScore += (brightRedRatio * 25); // Bright red lights = STRONG indicator
+  emergencyScore += (deepRedRatio * 20); // Deep red lights
+  emergencyScore += (brightBlueRatio * 22); // Bright blue lights = STRONG indicator
+  emergencyScore += (blueRatio * 12); // Any blue lights
+  emergencyScore += (orangeRatio * 10); // Amber lights
+  emergencyScore += (lightColorRatio * (brightRedRatio + brightBlueRatio) * 30); // WHITE + LIGHTS = ambulance
   
-  // OPTIMIZED threshold for Indian ambulance detection
-  const hasEmergency = emergencyScore > 0.45; // Lowered threshold for better detection
+  // OPTIMIZED threshold - prioritize visible emergency lights
+  const hasEmergency = emergencyScore > 0.4; // Lower threshold for better light-based detection
   
   // Clean up
   URL.revokeObjectURL(imageUrl);
