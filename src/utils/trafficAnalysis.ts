@@ -41,7 +41,15 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   let lightGrayPixels = 0;       // Off-white/light gray (common in real photos)
   let anyRedPixels = 0;          // Any shade of red
   
-  const sampleRate = 25; // More aggressive sampling for better accuracy
+  // Large vehicle detection (vans, buses, trucks)
+  let darkVehiclePixels = 0;     // Dark colored vehicles (trucks, vans)
+  let metallicPixels = 0;        // Metallic surfaces (car bodies, truck chassis)
+  let busYellowPixels = 0;       // Yellow buses (school buses, commercial)
+  let largeVehicleIndicators = 0; // Combined indicators for large vehicles
+  let darkBluePixels = 0;        // Dark blue (common van/truck color)
+  let brownPixels = 0;           // Brown/tan (delivery trucks, commercial vehicles)
+  
+  const sampleRate = 20; // More aggressive sampling for better detection
   
   for (let i = 0; i < pixels.length; i += 4 * sampleRate) {
     const r = pixels[i];
@@ -79,6 +87,39 @@ export const analyzeTrafficImage = async (file: File): Promise<{
     
     // Blue (police: B>160, R<120, G<160) - RELAXED
     else if (b > 160 && r < 120 && g < 160) bluePixels++;
+    
+    // === LARGE VEHICLE DETECTION ===
+    
+    // Dark vehicles (trucks, vans: R<80, G<80, B<80)
+    if (r < 80 && g < 80 && b < 80) {
+      darkVehiclePixels++;
+      largeVehicleIndicators++;
+    }
+    
+    // Metallic/silver surfaces (trucks, buses: R~G~B, 100-180 range)
+    else if (Math.abs(r - g) < 25 && Math.abs(g - b) < 25 && Math.abs(r - b) < 25 &&
+             r > 100 && r < 180 && g > 100 && g < 180 && b > 100 && b < 180) {
+      metallicPixels++;
+      largeVehicleIndicators++;
+    }
+    
+    // Yellow/orange buses (school buses, commercial: R>200, G>150, B<100)
+    else if (r > 200 && g > 150 && g < 230 && b < 100) {
+      busYellowPixels++;
+      largeVehicleIndicators += 2; // Buses are large, weight more
+    }
+    
+    // Dark blue vehicles (common van/truck color: B>R, B>G, B>100, R<120, G<120)
+    else if (b > r && b > g && b > 100 && b < 200 && r < 120 && g < 120) {
+      darkBluePixels++;
+      largeVehicleIndicators++;
+    }
+    
+    // Brown/tan (delivery trucks: R>120, G>80, B<100, R>G>B pattern)
+    else if (r > 120 && r < 180 && g > 80 && g < 150 && b < 100 && r > g && g > b) {
+      brownPixels++;
+      largeVehicleIndicators++;
+    }
   }
   
   const totalSampled = pixels.length / (4 * sampleRate);
@@ -90,6 +131,14 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   const blueRatio = bluePixels / totalSampled;
   const lightGrayRatio = lightGrayPixels / totalSampled;
   const anyRedRatio = anyRedPixels / totalSampled;
+  
+  // Large vehicle ratios
+  const darkVehicleRatio = darkVehiclePixels / totalSampled;
+  const metallicRatio = metallicPixels / totalSampled;
+  const busYellowRatio = busYellowPixels / totalSampled;
+  const darkBlueRatio = darkBluePixels / totalSampled;
+  const brownRatio = brownPixels / totalSampled;
+  const largeVehicleRatio = largeVehicleIndicators / totalSampled;
   
   // Combined white/light colors (ambulances in real photos often appear light colored)
   const lightColorRatio = whiteRatio + (lightGrayRatio * 0.8);
@@ -122,8 +171,23 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   // Clean up
   URL.revokeObjectURL(imageUrl);
 
-  // Indian traffic complexity factor (higher density expected)
-  const complexityFactor = Math.min(1, (fileSize / 800000) + (dimensions / 4000000));
+  // Detect large vehicles (buses, trucks, vans) for better vehicle count estimation
+  const busDetected = busYellowRatio > 0.08 || (yellowRatio > 0.12 && metallicRatio > 0.05);
+  const truckDetected = (darkVehicleRatio > 0.15 && metallicRatio > 0.08) || 
+                        (darkBlueRatio > 0.12) || 
+                        (brownRatio > 0.10);
+  const vanDetected = (metallicRatio > 0.12 && lightGrayRatio > 0.10) || 
+                      (darkVehicleRatio > 0.10 && darkBlueRatio > 0.08);
+  
+  // Count detected large vehicles
+  let largeVehicleCount = 0;
+  if (busDetected) largeVehicleCount += 1; // Buses are large, count as 1
+  if (truckDetected) largeVehicleCount += Math.floor(darkVehicleRatio * 50); // Multiple trucks possible
+  if (vanDetected) largeVehicleCount += Math.floor(metallicRatio * 40); // Multiple vans possible
+  
+  // Adjust complexity factor based on large vehicle presence
+  const largeVehicleBonus = largeVehicleRatio * 0.3; // Boost complexity for large vehicles
+  const complexityFactor = Math.min(1, (fileSize / 800000) + (dimensions / 4000000) + largeVehicleBonus);
   
   // Weighted bell curve distribution for Indian traffic (typically more congested)
   const random1 = Math.random();
@@ -135,8 +199,8 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   const stdDev = 7;
   const normalCount = Math.round(gaussian * stdDev + baseMean);
   
-  // Clamp between 8-45 vehicles for Indian traffic density
-  const baseCount = Math.max(8, Math.min(45, normalCount));
+  // Add detected large vehicles to the count
+  const baseCount = Math.max(8, Math.min(45, normalCount + largeVehicleCount));
   
   // Calculate congestion for Indian traffic (normalized to max 45 vehicles)
   // Indian roads tend to have higher congestion even with fewer vehicles due to mixed traffic
