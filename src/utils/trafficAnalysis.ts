@@ -143,30 +143,63 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   // Combined white/light colors (ambulances in real photos often appear light colored)
   const lightColorRatio = whiteRatio + (lightGrayRatio * 0.8);
   
-  // More aggressive pattern matching for emergency vehicles
-  const fireServicePattern = brightRedRatio > 0.10 || (anyRedRatio > 0.18); // Fire truck - any dominant red
+  // ENHANCED AMBULANCE DETECTION - Optimized for Indian ambulances
+  // Indian ambulances typically: white/off-white base + red cross/stripes + sometimes yellow lights
+  
+  // Fire service pattern (bright dominant red)
+  const fireServicePattern = brightRedRatio > 0.10 || (anyRedRatio > 0.18);
+  
+  // IMPROVED AMBULANCE PATTERNS - Multiple detection strategies
+  const ambulanceWhiteBase = lightColorRatio > 0.12; // Ambulance has significant white/light colored body
+  const ambulanceRedMarkings = anyRedRatio > 0.015; // Even small amount of red (cross/stripes)
+  const ambulanceYellowLights = yellowRatio > 0.02 || orangeRatio > 0.015; // Emergency lights
+  
+  // Strong ambulance indicators (multiple patterns for better detection)
   const ambulancePattern = (
-    (lightColorRatio > 0.15 && anyRedRatio > 0.02) || // White/light with ANY red
-    (lightColorRatio > 0.20 && yellowRatio > 0.03) || // White with yellow
-    (whiteRatio > 0.12 && redAccentRatio > 0.02) // Pure white with red accents
+    // Pattern 1: Classic white ambulance with red cross/stripes
+    (ambulanceWhiteBase && ambulanceRedMarkings) ||
+    // Pattern 2: White/light vehicle with yellow emergency lights
+    (lightColorRatio > 0.20 && ambulanceYellowLights) ||
+    // Pattern 3: Bright white with any red accents (relaxed)
+    (whiteRatio > 0.10 && anyRedRatio > 0.01) ||
+    // Pattern 4: Off-white/gray with red markings (real photo conditions)
+    (lightGrayRatio > 0.12 && redAccentRatio > 0.015) ||
+    // Pattern 5: Combined white + red + yellow (strong ambulance signature)
+    (ambulanceWhiteBase && ambulanceRedMarkings && ambulanceYellowLights)
   );
-  const policePattern = (lightColorRatio > 0.15 && blueRatio > 0.03); // White with blue
-  const emergencyLightPattern = (orangeRatio > 0.02 || yellowRatio > 0.04); // Visible lights - RELAXED
   
-  // Calculate emergency score with optimistic weights
+  // Police pattern
+  const policePattern = (lightColorRatio > 0.15 && blueRatio > 0.03);
+  
+  // Emergency light pattern
+  const emergencyLightPattern = (orangeRatio > 0.02 || yellowRatio > 0.04);
+  
+  // Calculate emergency score with HIGH priority for ambulances
   let emergencyScore = 0;
+  
+  // AMBULANCE PRIORITY - Highest weight (life-saving vehicles)
+  if (ambulancePattern) {
+    emergencyScore += 8.0; // DOUBLED - Ambulances are absolute priority
+    
+    // Extra bonuses for strong ambulance indicators
+    if (ambulanceWhiteBase && ambulanceRedMarkings) emergencyScore += 4.0;
+    if (ambulanceYellowLights) emergencyScore += 2.0;
+    if (lightColorRatio > 0.25) emergencyScore += 3.0; // Very white = likely ambulance
+  }
+  
   if (fireServicePattern) emergencyScore += 4.0; // Fire trucks
-  if (ambulancePattern) emergencyScore += 4.5; // INCREASED for ambulances
   if (policePattern) emergencyScore += 3.5; // Police vehicles
-  if (emergencyLightPattern) emergencyScore += 2.0; // Emergency lights - INCREASED
+  if (emergencyLightPattern) emergencyScore += 2.0; // Emergency lights
   
-  // Additional scoring for color ratios (more generous)
-  emergencyScore += (brightRedRatio * 4) + (anyRedRatio * 2.5) + (redAccentRatio * 3) + (orangeRatio * 3);
-  emergencyScore += (lightColorRatio * anyRedRatio * 8); // Bonus for white+red combination
-  emergencyScore += (yellowRatio * 2.5); // Yellow indicator
+  // Additional scoring for color ratios (ambulance-optimized)
+  emergencyScore += (anyRedRatio * 3.5); // Any red is important for ambulances
+  emergencyScore += (lightColorRatio * anyRedRatio * 12); // WHITE+RED = strong ambulance indicator
+  emergencyScore += (lightColorRatio * yellowRatio * 8); // WHITE+YELLOW = ambulance lights
+  emergencyScore += (orangeRatio * 3.5); // Orange emergency lights
+  emergencyScore += (whiteRatio * 2); // Pure white bonus
   
-  // Much more optimistic threshold - prioritize detecting emergency vehicles
-  const hasEmergency = emergencyScore > 0.6 || Math.random() > 0.85; // 15% base + LOWERED threshold
+  // LOWERED threshold for better ambulance detection
+  const hasEmergency = emergencyScore > 0.5; // Removed random factor - rely on pattern detection only
   
   // Clean up
   URL.revokeObjectURL(imageUrl);
