@@ -148,17 +148,25 @@ const Index = () => {
 
       // Determine lane priority order (EMERGENCY ABSOLUTE FIRST, then by congestion)
       const laneOrder = lanes
-        .map((lane, idx) => ({ 
-          idx, 
-          priority: lane.hasEmergency ? 100000 : lane.congestionLevel, // 1000x emergency priority - ABSOLUTE FIRST
-          vehicleCount: lane.vehicleCount,
-          // Emergency vehicles get faster processing: 1.0s per vehicle vs 1.5s
-          // This ensures ambulances and fire trucks clear MUCH faster
-          greenTime: lane.hasEmergency 
-            ? Math.max(20, Math.ceil(lane.vehicleCount * 1.0)) // Min 20s for emergency, FASTEST clearing
-            : Math.max(5, Math.ceil(lane.vehicleCount * 1.5)), // Regular: 1.5s per vehicle
-          isEmergency: lane.hasEmergency
-        }))
+        .map((lane, idx) => {
+          // Calculate time needed to clear HALF the vehicles
+          const halfVehicles = Math.ceil(lane.vehicleCount / 2);
+          // Emergency: 2s per vehicle, Regular: 3s per vehicle
+          const timePerVehicle = lane.hasEmergency ? 2 : 3;
+          const halfClearanceTime = halfVehicles * timePerVehicle;
+          
+          return {
+            idx, 
+            priority: lane.hasEmergency ? 100000 : lane.congestionLevel,
+            vehicleCount: lane.vehicleCount,
+            halfVehicles,
+            // Green time = time to clear 50% of vehicles
+            greenTime: lane.hasEmergency 
+              ? Math.max(15, halfClearanceTime) // Min 15s for emergency
+              : Math.max(10, halfClearanceTime), // Min 10s for regular
+            isEmergency: lane.hasEmergency
+          };
+        })
         .filter(lane => lane.vehicleCount > 0) // Only process lanes with vehicles
         .sort((a, b) => {
           // CRITICAL: Emergency lanes ALWAYS go first, regardless of any other factor
@@ -203,14 +211,16 @@ const Index = () => {
       const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
       setAvgWaitTime(Math.round(totalWait / lanes.length));
       
-      // More realistic throughput calculation based on actual vehicles moved
-      const vehiclesMoved = Math.floor(currentGreenTime / 1.5); // 1 vehicle per 1.5 seconds
-      setThroughput(prev => prev + Math.min(vehiclesMoved, lanes[currentLaneIdx].vehicleCount));
+      // Throughput calculation based on half-clearance strategy
+      const clearingRate = lanes[currentLaneIdx].hasEmergency ? 2.0 : 3.0;
+      const halfVehicles = Math.ceil(lanes[currentLaneIdx].vehicleCount / 2);
+      setThroughput(prev => prev + halfVehicles);
 
-      // Countdown mechanism for green light lane only
+      // Countdown mechanism - automatically switch after clearing half the vehicles
       let remainingTime = currentGreenTime;
       const initialVehicleCount = lanes[currentLaneIdx].vehicleCount;
       const initialCongestion = lanes[currentLaneIdx].congestionLevel;
+      const targetVehiclesToClear = Math.ceil(initialVehicleCount / 2); // Clear 50%
       
       const countdownInterval = setInterval(() => {
         remainingTime--;
@@ -218,11 +228,16 @@ const Index = () => {
         // Update ONLY the current green lane's duration, vehicle count, and congestion
         setLanes(prev => prev.map((lane, idx) => {
           if (idx === currentLaneIdx && lane.signalState === "green") {
-            // Vehicle movement: Emergency lanes clear MUCH faster (1 per 1.0s) vs regular (1 per 1.5s)
+            // Vehicle movement: Emergency 2s per vehicle, Regular 3s per vehicle
             const elapsedTime = currentGreenTime - remainingTime;
-            const clearingRate = lane.hasEmergency ? 1.0 : 1.5; // Emergency vehicles move FASTEST
+            const clearingRate = lane.hasEmergency ? 2.0 : 3.0;
             const vehiclesMoved = Math.floor(elapsedTime / clearingRate);
             const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
+            
+            // AUTO-SWITCH: If we've cleared 50% of vehicles, end the green phase early
+            if (vehiclesMoved >= targetVehiclesToClear && remainingTime > 2) {
+              remainingTime = 2; // Give 2 seconds before switching
+            }
             
             // Accurate congestion calculation based on remaining vehicles
             let newCongestion = 0;
