@@ -360,12 +360,16 @@ export class GeneticAlgorithm {
   calculateFitness(
     chromosome: Chromosome,
     congestionLevels: number[],
-    emergencyFlags: boolean[]
+    emergencyFlags: boolean[],
+    vehicleCounts?: number[]
   ): number {
     let fitness = 0;
     const totalTime = chromosome.greenTimes.reduce((sum, time) => sum + time, 0);
     const hasAnyEmergency = emergencyFlags.some(flag => flag);
 
+    // Vehicle throughput calculation: ~3 seconds per vehicle on average
+    const SECONDS_PER_VEHICLE = 3;
+    
     chromosome.greenTimes.forEach((time, i) => {
       // ABSOLUTE PRIORITY: Emergency vehicles (ambulance/fire service) get maximum priority
       if (emergencyFlags[i]) {
@@ -383,9 +387,34 @@ export class GeneticAlgorithm {
         fitness -= time * 5;
       }
 
+      // NEW: Vehicle clearance optimization - prioritize clearing at least 50% of waiting vehicles
+      if (vehicleCounts && vehicleCounts[i] > 0 && !emergencyFlags[i]) {
+        const waitingVehicles = vehicleCounts[i];
+        const vehiclesCanPass = Math.floor(time / SECONDS_PER_VEHICLE);
+        const clearanceRatio = Math.min(vehiclesCanPass / waitingVehicles, 1.0);
+        
+        // HUGE bonus for clearing at least 50% of vehicles
+        if (clearanceRatio >= 0.5) {
+          fitness += 300; // Major bonus for half-clearance
+          
+          // Extra bonus for clearing more than 50%
+          if (clearanceRatio >= 0.7) fitness += 150;
+          if (clearanceRatio >= 0.9) fitness += 200; // Near-complete clearance
+          
+          // Scale bonus by congestion level - more congested lanes get higher priority
+          fitness += clearanceRatio * congestionLevels[i] * 3;
+        } else {
+          // Penalty for not clearing enough vehicles (less than 50%)
+          fitness -= (0.5 - clearanceRatio) * 100;
+        }
+        
+        // Additional throughput reward
+        fitness += vehiclesCanPass * 5;
+      }
+
       // Reward proportional green time based on congestion (lower weight when emergency present)
       const congestionWeight = congestionLevels[i] / 100;
-      const congestionMultiplier = hasAnyEmergency ? 0.5 : 2; // Reduce congestion importance when emergency exists
+      const congestionMultiplier = hasAnyEmergency ? 0.5 : 1.5; // Balanced with vehicle clearance
       fitness += time * congestionWeight * congestionMultiplier;
 
       // Bonus for efficient time allocation (adjusted for emergency context)
@@ -416,10 +445,10 @@ export class GeneticAlgorithm {
     return fitness;
   }
 
-  evolve(congestionLevels: number[], emergencyFlags: boolean[]): Chromosome {
+  evolve(congestionLevels: number[], emergencyFlags: boolean[], vehicleCounts?: number[]): Chromosome {
     // Calculate fitness for all chromosomes
     this.population.forEach(chromosome => {
-      chromosome.fitness = this.calculateFitness(chromosome, congestionLevels, emergencyFlags);
+      chromosome.fitness = this.calculateFitness(chromosome, congestionLevels, emergencyFlags, vehicleCounts);
     });
 
     // Sort by fitness (descending)

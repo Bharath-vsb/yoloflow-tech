@@ -120,6 +120,7 @@ const Index = () => {
   const runGeneticAlgorithm = () => {
     const congestionLevels = lanes.map(lane => lane.congestionLevel);
     const emergencyFlags = lanes.map(lane => lane.hasEmergency);
+    const vehicleCounts = lanes.map(lane => lane.vehicleCount);
 
     let currentGen = 0;
     const maxGenerations = 100; // More generations for better optimization
@@ -140,7 +141,7 @@ const Index = () => {
         return;
       }
 
-      const best = ga.evolve(congestionLevels, emergencyFlags);
+      const best = ga.evolve(congestionLevels, emergencyFlags, vehicleCounts);
       currentGen++;
       
       setGeneration(currentGen);
