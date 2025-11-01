@@ -39,16 +39,21 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: `Analyze this traffic image and detect:
-1. Total number of vehicles visible
-2. Is there an ambulance present? Look for:
-   - Text stickers: "AMBULANCE", "108", or similar emergency service numbers
-   - Red cross (+) symbol or medical symbols
-   - Red and/or blue emergency lights on the roof
-   - White/yellow colored body typical of ambulances
-3. Estimate traffic congestion level (0.0 to 1.0)
+                text: `Analyze this traffic image and detect, even if the image is blurry, low-light, rainy, compressed, or partially occluded:
+1) Total number of vehicles visible (estimate across dense traffic; count 2-wheelers, autos, cars, buses, trucks)
+2) Is there an ambulance present? Use robust cues:
+   - Error-tolerant OCR for stickers: "AMBULANCE" (also partial forms like "AMB", "AMBULAN"), and "108"
+   - Medical symbols: red cross/plus (two perpendicular red bars of similar thickness)
+   - Roof emergency lights: saturated red and/or blue glowing clusters on top of a vehicle
+   - Typical ambulance body: white/off-white or yellow with red stripes/markings
+   - Prioritize red/blue roof lights + white body; allow partial evidence and aggregate signals
+3) Estimate traffic congestion level as a number between 0 and 1
 
-Respond ONLY with a valid JSON object in this exact format:
+Important:
+- Return ONLY a JSON object matching the schema below, no markdown.
+- If multiple ambulances are found, set hasEmergency=true if at least one is present.
+- Set emergencyConfidence between 0 and 1 reflecting certainty from all signals.
+
 {
   "vehicleCount": <number>,
   "hasEmergency": <boolean>,

@@ -333,7 +333,7 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   return {
     vehicleCount,
     hasEmergency,
-    congestionLevel: congestionLevel / 100, // Normalize to 0-1
+    congestionLevel,
   };
 };
 
