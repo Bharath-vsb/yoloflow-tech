@@ -49,7 +49,7 @@ const Index = () => {
 
   const handleImageUpload = async (laneNumber: number, file: File) => {
     setIsAnalyzing(true);
-    toast.info(`Analyzing Lane ${laneNumber} with YOLO...`);
+    toast.info(`Analyzing Lane ${laneNumber} with AI Vision...`);
 
     try {
       const analysis = await analyzeTrafficImage(file);
@@ -64,6 +64,16 @@ const Index = () => {
           waitingTime: 0,
           greenDuration: 0,
         };
+        
+        // Auto-start optimization if all lanes have images
+        const allLanesUploaded = updated.every(lane => lane.image !== null);
+        if (allLanesUploaded && !isOptimizing) {
+          // Use setTimeout to allow state to update
+          setTimeout(() => {
+            startOptimization();
+          }, 500);
+        }
+        
         return updated;
       });
 
@@ -71,7 +81,7 @@ const Index = () => {
       
       if (analysis.hasEmergency) {
         toast.error(`🚨 EMERGENCY VEHICLE in Lane ${laneNumber}!`, {
-          description: "Ambulance/Fire Service detected - PRIORITY CLEARANCE will be given",
+          description: "Ambulance detected - PRIORITY CLEARANCE will be given",
           duration: 5000,
         });
       }
@@ -347,12 +357,12 @@ const Index = () => {
             <div className="flex gap-3">
               <Button
                 onClick={startOptimization}
-                disabled={isOptimizing || isAnalyzing}
+                disabled={isOptimizing || isAnalyzing || lanes.every(lane => lane.image === null)}
                 size="lg"
                 className="gap-2"
               >
                 <Play className="w-5 h-5" />
-                {isOptimizing ? "Optimizing..." : "Start Analysis"}
+                {isOptimizing ? "Optimizing Traffic Flow..." : "Start Traffic Optimization"}
               </Button>
               <Button onClick={reset} variant="outline" size="lg" className="gap-2">
                 <RotateCcw className="w-5 h-5" />
