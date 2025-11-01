@@ -1,9 +1,69 @@
-// Optimized YOLO detection - Analyzes actual image properties for realistic vehicle count
+// Convert file to base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+// AI-powered ambulance detection with fallback to pixel-based analysis
 export const analyzeTrafficImage = async (file: File): Promise<{
   vehicleCount: number;
   hasEmergency: boolean;
   congestionLevel: number;
 }> => {
+  try {
+    console.log('Starting AI-powered traffic analysis...');
+    
+    // Convert image to base64
+    const imageBase64 = await fileToBase64(file);
+    
+    // Call AI vision edge function
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-traffic-image`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ imageBase64 }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.warn('AI analysis failed, falling back to pixel analysis:', errorData.error);
+      throw new Error(errorData.error || 'AI analysis failed');
+    }
+
+    const result = await response.json();
+    
+    console.log('AI Analysis Result:', {
+      vehicles: result.vehicleCount,
+      emergency: result.hasEmergency,
+      confidence: result.emergencyConfidence,
+      features: result.emergencyFeatures,
+      congestion: result.congestionLevel
+    });
+
+    return {
+      vehicleCount: result.vehicleCount || 0,
+      hasEmergency: result.hasEmergency || false,
+      congestionLevel: result.congestionLevel || 0
+    };
+    
+  } catch (error) {
+    console.error('AI traffic analysis error:', error);
+    console.log('Falling back to pixel-based analysis...');
+  }
+
+  // Fallback: Pixel-based detection (original logic)
   // Simulate processing delay
   await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -273,7 +333,7 @@ export const analyzeTrafficImage = async (file: File): Promise<{
   return {
     vehicleCount,
     hasEmergency,
-    congestionLevel,
+    congestionLevel: congestionLevel / 100, // Normalize to 0-1
   };
 };
 
