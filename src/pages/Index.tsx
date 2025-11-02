@@ -150,21 +150,23 @@ const Index = () => {
       // Determine lane priority order (EMERGENCY ABSOLUTE FIRST, then by congestion)
       const laneOrder = lanes
         .map((lane, idx) => {
-          // Calculate time needed to clear HALF the vehicles
-          const halfVehicles = Math.ceil(lane.vehicleCount / 2);
+          // Emergency vehicles: clear 75%, Regular: clear 50%
+          const clearanceRatio = lane.hasEmergency ? 0.75 : 0.5;
+          const vehiclesToClear = Math.ceil(lane.vehicleCount * clearanceRatio);
           // Emergency: 2s per vehicle, Regular: 3s per vehicle
           const timePerVehicle = lane.hasEmergency ? 2 : 3;
-          const halfClearanceTime = halfVehicles * timePerVehicle;
+          const clearanceTime = vehiclesToClear * timePerVehicle;
           
           return {
             idx, 
             priority: lane.hasEmergency ? 100000 : lane.congestionLevel,
             vehicleCount: lane.vehicleCount,
-            halfVehicles,
-            // Green time = time to clear 50% of vehicles
+            vehiclesToClear,
+            clearanceRatio,
+            // Green time = time to clear target % of vehicles
             greenTime: lane.hasEmergency 
-              ? Math.max(15, halfClearanceTime) // Min 15s for emergency
-              : Math.max(10, halfClearanceTime), // Min 10s for regular
+              ? Math.max(20, clearanceTime) // Min 20s for emergency (more time for 75%)
+              : Math.max(10, clearanceTime), // Min 10s for regular
             isEmergency: lane.hasEmergency
           };
         })
@@ -217,11 +219,13 @@ const Index = () => {
       const halfVehicles = Math.ceil(lanes[currentLaneIdx].vehicleCount / 2);
       setThroughput(prev => prev + halfVehicles);
 
-      // Countdown mechanism - automatically switch after clearing half the vehicles
+      // Countdown mechanism - automatically switch after clearing target % of vehicles
       let remainingTime = currentGreenTime;
       const initialVehicleCount = lanes[currentLaneIdx].vehicleCount;
       const initialCongestion = lanes[currentLaneIdx].congestionLevel;
-      const targetVehiclesToClear = Math.ceil(initialVehicleCount / 2); // Clear 50%
+      const isEmergencyLane = lanes[currentLaneIdx].hasEmergency;
+      const clearanceRatio = isEmergencyLane ? 0.75 : 0.5; // Emergency: 75%, Regular: 50%
+      const targetVehiclesToClear = Math.ceil(initialVehicleCount * clearanceRatio);
       
       const countdownInterval = setInterval(() => {
         remainingTime--;
@@ -235,7 +239,7 @@ const Index = () => {
             const vehiclesMoved = Math.floor(elapsedTime / clearingRate);
             const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
             
-            // AUTO-SWITCH: If we've cleared 50% of vehicles, end the green phase early
+            // AUTO-SWITCH: If we've cleared target % of vehicles, end the green phase early
             if (vehiclesMoved >= targetVehiclesToClear && remainingTime > 2) {
               remainingTime = 2; // Give 2 seconds before switching
             }

@@ -367,8 +367,9 @@ export class GeneticAlgorithm {
     const totalTime = chromosome.greenTimes.reduce((sum, time) => sum + time, 0);
     const hasAnyEmergency = emergencyFlags.some(flag => flag);
 
-    // Vehicle throughput calculation: ~3 seconds per vehicle on average
-    const SECONDS_PER_VEHICLE = 3;
+    // Vehicle throughput calculation: Emergency 2s, Regular 3s per vehicle
+    const EMERGENCY_SECONDS_PER_VEHICLE = 2;
+    const REGULAR_SECONDS_PER_VEHICLE = 3;
     
     chromosome.greenTimes.forEach((time, i) => {
       // ABSOLUTE PRIORITY: Emergency vehicles (ambulance/fire service) get maximum priority
@@ -381,41 +382,76 @@ export class GeneticAlgorithm {
         
         // Emergency lanes should be processed immediately - huge bonus
         fitness += 500; // Base emergency presence bonus
+        
+        // NEW: Emergency vehicle clearance optimization - prioritize clearing at least 75% of waiting vehicles
+        if (vehicleCounts && vehicleCounts[i] > 0) {
+          const waitingVehicles = vehicleCounts[i];
+          const vehiclesCanPass = Math.floor(time / EMERGENCY_SECONDS_PER_VEHICLE);
+          const clearanceRatio = Math.min(vehiclesCanPass / waitingVehicles, 1.0);
+          
+          // MASSIVE bonus for clearing at least 75% of emergency vehicles
+          if (clearanceRatio >= 0.75) {
+            fitness += 800; // Huge bonus for 75% clearance
+            if (clearanceRatio >= 0.9) fitness += 300; // Even more for near-complete
+          } else if (clearanceRatio >= 0.5) {
+            fitness += 200; // Smaller bonus for 50-75%
+          } else {
+            // Heavy penalty for not clearing enough emergency vehicles
+            fitness -= (0.75 - clearanceRatio) * 500;
+          }
+          
+          // Additional emergency throughput reward
+          fitness += vehiclesCanPass * 20;
+        }
       } else if (hasAnyEmergency) {
         // Heavy penalty for non-emergency lanes when emergency exists
         // This ensures emergency lanes always go first
         fitness -= time * 5;
       }
 
-      // NEW: Vehicle clearance optimization - prioritize clearing at least 50% of waiting vehicles
+      // Enhanced vehicle clearance optimization with predictive congestion analysis
       if (vehicleCounts && vehicleCounts[i] > 0 && !emergencyFlags[i]) {
         const waitingVehicles = vehicleCounts[i];
-        const vehiclesCanPass = Math.floor(time / SECONDS_PER_VEHICLE);
+        const vehiclesCanPass = Math.floor(time / REGULAR_SECONDS_PER_VEHICLE);
         const clearanceRatio = Math.min(vehiclesCanPass / waitingVehicles, 1.0);
+        
+        // Predict future congestion impact
+        const congestionWeight = congestionLevels[i] / 100; // Normalize to 0-1
+        const remainingVehicles = waitingVehicles - vehiclesCanPass;
+        const futureImpact = remainingVehicles * congestionWeight;
         
         // HUGE bonus for clearing at least 50% of vehicles
         if (clearanceRatio >= 0.5) {
           fitness += 300; // Major bonus for half-clearance
           
-          // Extra bonus for clearing more than 50%
-          if (clearanceRatio >= 0.7) fitness += 150;
-          if (clearanceRatio >= 0.9) fitness += 200; // Near-complete clearance
+          // Extra bonus for clearing more, scaled by congestion level
+          if (clearanceRatio >= 0.7) fitness += 150 * (1 + congestionWeight);
+          if (clearanceRatio >= 0.9) fitness += 200 * (1 + congestionWeight); // Near-complete clearance
           
           // Scale bonus by congestion level - more congested lanes get higher priority
-          fitness += clearanceRatio * congestionLevels[i] * 3;
+          fitness += clearanceRatio * congestionLevels[i] * 4;
+          
+          // Bonus for reducing future congestion buildup
+          fitness += (1 - (futureImpact / waitingVehicles)) * 100;
         } else {
           // Penalty for not clearing enough vehicles (less than 50%)
-          fitness -= (0.5 - clearanceRatio) * 100;
+          // Heavier penalty for high congestion lanes
+          fitness -= (0.5 - clearanceRatio) * 100 * (1 + congestionWeight);
+          
+          // Additional penalty for future congestion buildup
+          fitness -= futureImpact * 50;
         }
         
-        // Additional throughput reward
-        fitness += vehiclesCanPass * 5;
+        // Additional throughput reward with congestion consideration
+        fitness += vehiclesCanPass * 5 * (1 + congestionWeight * 0.5);
       }
 
-      // Reward proportional green time based on congestion (lower weight when emergency present)
+      // Reward proportional green time based on congestion with predictive scaling
       const congestionWeight = congestionLevels[i] / 100;
       const congestionMultiplier = hasAnyEmergency ? 0.5 : 1.5; // Balanced with vehicle clearance
-      fitness += time * congestionWeight * congestionMultiplier;
+      // Add predictive multiplier that increases with congestion
+      const predictiveMultiplier = 1 + (congestionWeight * 0.5);
+      fitness += time * congestionWeight * congestionMultiplier * predictiveMultiplier;
 
       // Bonus for efficient time allocation (adjusted for emergency context)
       if (!emergencyFlags[i]) {
