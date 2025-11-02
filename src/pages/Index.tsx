@@ -183,36 +183,51 @@ const Index = () => {
       const nextLaneIdx = laneOrder[(cycleIndex + 1) % laneOrder.length].idx;
       const currentGreenTime = laneOrder[cycleIndex % laneOrder.length].greenTime;
 
-      // Calculate waiting times based on sum of green durations before each lane
-      const newWaitTimes = lanes.map((_, idx) => {
-        if (idx === currentLaneIdx) return 0;
+      // Simplified waiting time calculation - lanes wait for their turn in sequence
+      setLanes(prev => prev.map((lane, idx) => {
+        const laneInfo = laneOrder.find(item => item.idx === idx);
+        const greenDuration = laneInfo?.greenTime || 0;
         
-        const lanePosition = laneOrder.findIndex(item => item.idx === idx);
-        const currentPosition = cycleIndex % laneOrder.length;
-        
-        let waitTime = 0;
-        let pos = currentPosition;
-        
-        // Sum up green times of all lanes that will go before this one
-        while (pos !== lanePosition) {
-          waitTime += laneOrder[pos % laneOrder.length].greenTime;
-          pos = (pos + 1) % laneOrder.length;
+        // Current green lane has 0 waiting time
+        if (idx === currentLaneIdx) {
+          return { ...lane, waitingTime: 0, greenDuration };
         }
         
-        return waitTime;
-      });
-
-      // Set initial green durations and waiting times
-      setLanes(prev => prev.map((lane, idx) => ({
-        ...lane,
-        waitingTime: newWaitTimes[idx],
-        greenDuration: laneOrder.find(item => item.idx === idx)?.greenTime || 0,
-      })));
+        // Calculate waiting time: sum of green times of all lanes before this one
+        const currentPos = laneOrder.findIndex(item => item.idx === currentLaneIdx);
+        const thisPos = laneOrder.findIndex(item => item.idx === idx);
+        
+        let waitTime = 0;
+        if (thisPos > currentPos) {
+          // This lane comes after current in the queue
+          for (let i = currentPos + 1; i < thisPos; i++) {
+            waitTime += laneOrder[i].greenTime;
+          }
+        } else {
+          // This lane comes before current (wrap around)
+          for (let i = currentPos + 1; i < laneOrder.length; i++) {
+            waitTime += laneOrder[i].greenTime;
+          }
+          for (let i = 0; i < thisPos; i++) {
+            waitTime += laneOrder[i].greenTime;
+          }
+        }
+        
+        return { ...lane, waitingTime: waitTime, greenDuration };
+      }));
 
       setCurrentGreenLane(currentLaneIdx + 1);
 
-      const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
-      setAvgWaitTime(Math.round(totalWait / lanes.length));
+      // Calculate average wait time from all lanes with vehicles
+      const lanesWithVehicles = lanes.filter(lane => lane.vehicleCount > 0);
+      if (lanesWithVehicles.length > 0) {
+        const totalWait = lanesWithVehicles.reduce((sum, lane, idx) => {
+          if (idx === currentLaneIdx) return sum;
+          const laneInfo = laneOrder.find(item => item.idx === idx);
+          return sum + (laneInfo ? currentGreenTime : 0);
+        }, 0);
+        setAvgWaitTime(Math.round(totalWait / lanesWithVehicles.length));
+      }
       
       // Throughput calculation based on half-clearance strategy
       const clearingRate = lanes[currentLaneIdx].hasEmergency ? 2.0 : 3.0;
@@ -264,14 +279,11 @@ const Index = () => {
               vehicleCount: vehiclesRemaining,
               congestionLevel: newCongestion
             };
-          } else if (lane.waitingTime > 0) {
-            // Other lanes only reduce waiting time, no vehicle movement
-            return { ...lane, waitingTime: lane.waitingTime - 1 };
+          } else {
+            // Other lanes reduce waiting time by 1 second
+            return { ...lane, waitingTime: Math.max(0, lane.waitingTime - 1) };
           }
-          return lane;
         }));
-
-        setAvgWaitTime(prev => Math.max(0, prev - 1));
         
         // When countdown reaches 0, change signal lights
         if (remainingTime <= 0) {
