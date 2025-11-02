@@ -39,32 +39,41 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: `Analyze this traffic image and detect, even if the image is blurry, low-light, rainy, compressed, or partially occluded:
-1) Total number of vehicles visible (estimate across dense traffic; count 2-wheelers, autos, cars, buses, trucks)
-2) Is there an ambulance present? Use robust cues:
-   - Error-tolerant OCR for stickers: "AMBULANCE" (also partial forms like "AMB", "AMBULAN"), and "108"
-   - Medical symbols: red cross/plus (two perpendicular red bars of similar thickness)
-   - Roof emergency lights: saturated red and/or blue glowing clusters on top of a vehicle
-   - Typical ambulance body: white/off-white or yellow with red stripes/markings
-   - Prioritize red/blue roof lights + white body; allow partial evidence and aggregate signals
-3) Estimate traffic congestion level as a number between 0 and 1
+                text: `Analyze this traffic image and provide REALISTIC vehicle detection:
 
-Important:
-- Return ONLY a JSON object matching the schema below, no markdown.
-- If multiple ambulances are found, set hasEmergency=true if at least one is present.
-- Set emergencyConfidence between 0 and 1 reflecting certainty from all signals.
+1) Count ONLY clearly visible, individual vehicles. Be conservative and realistic:
+   - Count each 2-wheeler, auto-rickshaw, car, bus, truck as ONE vehicle
+   - DO NOT estimate or guess vehicles you cannot see
+   - For partially visible vehicles at edges, count only if >50% visible
+   - In dense traffic, count row by row to avoid duplication
+   - Typical single lane: 3-8 vehicles for light, 10-20 for moderate, 25-40 for heavy
+   - Multi-lane intersections: multiply by number of visible lanes
+   - IMPORTANT: Be realistic - a typical traffic signal photo shows 10-30 vehicles, rarely more than 50 unless it's a very wide multi-lane view
 
+2) Emergency vehicle detection with robust cues:
+   - Text: "AMBULANCE", "AMB", "AMBULAN", "108" on vehicle body
+   - Visual: Red cross/plus symbol, red/blue roof lights
+   - Body: White/yellow with red stripes/markings
+   - Set hasEmergency=true if confident, emergencyConfidence 0-1
+
+3) Congestion level (0-1):
+   - 0-0.3: Light traffic, vehicles moving freely
+   - 0.3-0.6: Moderate, some gaps between vehicles
+   - 0.6-0.85: Heavy, vehicles close together
+   - 0.85-1.0: Severe congestion, bumper-to-bumper
+
+Return ONLY JSON (no markdown):
 {
-  "vehicleCount": <number>,
+  "vehicleCount": <realistic count of clearly visible vehicles>,
   "hasEmergency": <boolean>,
-  "emergencyConfidence": <number between 0-1>,
+  "emergencyConfidence": <number 0-1>,
   "emergencyFeatures": {
     "hasAmbulanceText": <boolean>,
     "has108Text": <boolean>,
     "hasRedCross": <boolean>,
     "hasEmergencyLights": <boolean>
   },
-  "congestionLevel": <number between 0-1>
+  "congestionLevel": <number 0-1>
 }`
               },
               {
