@@ -332,53 +332,56 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen p-6 animate-fade-in">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">
-              AI Traffic Management System
-            </h1>
-            <p className="text-muted-foreground">
-              YOLO-based vehicle detection with genetic algorithm optimization
-            </p>
-          </div>
+        <div className="text-center space-y-3 animate-fade-in-up">
+          <h1 className="text-5xl md:text-6xl font-bold text-gradient mb-3">
+            AI Traffic Management
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Smart vehicle detection with genetic algorithm optimization
+          </p>
+        </div>
           {laneCount !== null && (
-            <div className="flex gap-3">
+            <div className="flex justify-center gap-4 mt-6 animate-scale-in">
               <Button
                 onClick={startOptimization}
                 disabled={isOptimizing || isAnalyzing || lanes.every(lane => lane.image === null)}
                 size="lg"
-                className="gap-2"
+                className="gradient-primary shadow-glow hover:scale-105 transition-all duration-300 font-semibold px-8"
               >
-                <Play className="w-5 h-5" />
+                <Play className="w-5 h-5 mr-2" />
                 {isOptimizing ? "Optimizing Traffic Flow..." : "Start Traffic Optimization"}
               </Button>
-              <Button onClick={reset} variant="outline" size="lg" className="gap-2">
-                <RotateCcw className="w-5 h-5" />
+              <Button 
+                onClick={reset} 
+                variant="outline" 
+                size="lg" 
+                className="shadow-card hover:scale-105 transition-all duration-300 font-semibold px-8"
+              >
+                <RotateCcw className="w-5 h-5 mr-2" />
                 Reset
               </Button>
             </div>
           )}
-        </div>
 
         {/* Lane Selection */}
         {laneCount === null ? (
-          <Card className="p-8">
-            <div className="text-center space-y-6">
+          <Card className="gradient-card shadow-card border-border/50 p-12 animate-scale-in">
+            <div className="text-center space-y-8">
               <div>
-                <h2 className="text-2xl font-semibold mb-2">Select Number of Traffic Lanes</h2>
-                <p className="text-muted-foreground">Choose between 2 to 4 lanes for traffic monitoring</p>
+                <h2 className="text-3xl font-bold mb-3 text-gradient">Select Traffic Lanes</h2>
+                <p className="text-muted-foreground text-lg">Choose between 2 to 4 lanes for monitoring</p>
               </div>
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-6">
                 {[2, 3, 4].map((count) => (
                   <Button
                     key={count}
                     onClick={() => initializeLanes(count)}
                     size="lg"
                     variant="outline"
-                    className="h-24 w-24 text-2xl font-bold hover:scale-105 transition-transform"
+                    className="h-32 w-32 text-4xl font-bold hover:scale-110 hover:shadow-glow transition-all duration-300 gradient-card border-2 border-primary/30"
                   >
                     {count}
                   </Button>
@@ -388,34 +391,36 @@ const Index = () => {
           </Card>
         ) : (
           <>
-            {/* Emergency Alert Banner - Shows if ANY lane has emergency */}
+            {/* Emergency Alert Banner */}
             {lanes.some(lane => lane.hasEmergency && lane.vehicleCount > 0) && (
-              <Card className="p-6 bg-emergency border-4 border-white shadow-2xl animate-pulse">
-                <div className="flex items-center justify-center gap-4">
-                  <div className="w-4 h-4 rounded-full bg-white animate-ping" />
-                  <AlertTriangle className="w-8 h-8 text-white" />
+              <Card className="p-8 bg-gradient-to-r from-emergency to-emergency/80 border-4 border-white shadow-glow animate-pulse-glow">
+                <div className="flex items-center justify-center gap-6">
+                  <div className="w-5 h-5 rounded-full bg-white animate-ping" />
+                  <AlertTriangle className="w-10 h-10 text-white" />
                   <div className="flex flex-col">
-                    <span className="text-xl font-black text-white tracking-wider">
+                    <span className="text-2xl font-black text-white tracking-wider drop-shadow-lg">
                       🚨 EMERGENCY VEHICLE DETECTED 🚨
                     </span>
-                    <span className="text-sm text-white/90">
+                    <span className="text-base text-white/95">
                       Priority lane clearance in progress - All other lanes on hold
                     </span>
                   </div>
-                  <AlertTriangle className="w-8 h-8 text-white" />
-                  <div className="w-4 h-4 rounded-full bg-white animate-ping" />
+                  <AlertTriangle className="w-10 h-10 text-white" />
+                  <div className="w-5 h-5 rounded-full bg-white animate-ping" />
                 </div>
               </Card>
             )}
 
             {/* Current Status */}
             {isOptimizing && (
-              <Card className="p-4 bg-primary/10 border-primary/30">
-                <div className="flex items-center justify-center gap-3 text-sm">
-                  <Activity className="w-4 h-4 animate-pulse" />
-                  <span className="font-medium">
-                    Currently Active: Lane {currentGreenLane} (GREEN)
-                    {lanes[currentGreenLane - 1]?.hasEmergency && " - EMERGENCY PRIORITY"}
+              <Card className="p-6 gradient-card shadow-card border-primary/30 animate-fade-in">
+                <div className="flex items-center justify-center gap-4">
+                  <Activity className="w-6 h-6 animate-spin text-primary" />
+                  <span className="font-semibold text-lg">
+                    Currently Active: Lane {currentGreenLane} <span className="text-signal-green">(GREEN)</span>
+                    {lanes[currentGreenLane - 1]?.hasEmergency && (
+                      <span className="text-emergency ml-2">- EMERGENCY PRIORITY</span>
+                    )}
                   </span>
                 </div>
               </Card>
