@@ -65,15 +65,6 @@ const Index = () => {
           greenDuration: 0,
         };
         
-        // Auto-start optimization if all lanes have images
-        const allLanesUploaded = updated.every(lane => lane.image !== null);
-        if (allLanesUploaded && !isOptimizing) {
-          // Use setTimeout to allow state to update
-          setTimeout(() => {
-            startOptimization();
-          }, 500);
-        }
-        
         return updated;
       });
 
