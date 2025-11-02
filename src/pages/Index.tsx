@@ -150,23 +150,21 @@ const Index = () => {
       // Determine lane priority order (EMERGENCY ABSOLUTE FIRST, then by congestion)
       const laneOrder = lanes
         .map((lane, idx) => {
-          // Emergency vehicles: clear 75%, Regular: clear 50%
-          const clearanceRatio = lane.hasEmergency ? 0.75 : 0.5;
-          const vehiclesToClear = Math.ceil(lane.vehicleCount * clearanceRatio);
+          // Calculate time needed to clear HALF the vehicles
+          const halfVehicles = Math.ceil(lane.vehicleCount / 2);
           // Emergency: 2s per vehicle, Regular: 3s per vehicle
           const timePerVehicle = lane.hasEmergency ? 2 : 3;
-          const clearanceTime = vehiclesToClear * timePerVehicle;
+          const halfClearanceTime = halfVehicles * timePerVehicle;
           
           return {
             idx, 
             priority: lane.hasEmergency ? 100000 : lane.congestionLevel,
             vehicleCount: lane.vehicleCount,
-            vehiclesToClear,
-            clearanceRatio,
-            // Green time = time to clear target % of vehicles
+            halfVehicles,
+            // Green time = time to clear 50% of vehicles
             greenTime: lane.hasEmergency 
-              ? Math.max(20, clearanceTime) // Min 20s for emergency (more time for 75%)
-              : Math.max(10, clearanceTime), // Min 10s for regular
+              ? Math.max(15, halfClearanceTime) // Min 15s for emergency
+              : Math.max(10, halfClearanceTime), // Min 10s for regular
             isEmergency: lane.hasEmergency
           };
         })
@@ -183,64 +181,47 @@ const Index = () => {
       const nextLaneIdx = laneOrder[(cycleIndex + 1) % laneOrder.length].idx;
       const currentGreenTime = laneOrder[cycleIndex % laneOrder.length].greenTime;
 
-      // Simplified waiting time calculation - lanes wait for their turn in sequence
-      setLanes(prev => prev.map((lane, idx) => {
-        const laneInfo = laneOrder.find(item => item.idx === idx);
-        const greenDuration = laneInfo?.greenTime || 0;
+      // Calculate waiting times based on sum of green durations before each lane
+      const newWaitTimes = lanes.map((_, idx) => {
+        if (idx === currentLaneIdx) return 0;
         
-        // Current green lane has 0 waiting time
-        if (idx === currentLaneIdx) {
-          return { ...lane, waitingTime: 0, greenDuration };
-        }
-        
-        // Calculate waiting time: sum of green times of all lanes before this one
-        const currentPos = laneOrder.findIndex(item => item.idx === currentLaneIdx);
-        const thisPos = laneOrder.findIndex(item => item.idx === idx);
+        const lanePosition = laneOrder.findIndex(item => item.idx === idx);
+        const currentPosition = cycleIndex % laneOrder.length;
         
         let waitTime = 0;
-        if (thisPos > currentPos) {
-          // This lane comes after current in the queue
-          for (let i = currentPos + 1; i < thisPos; i++) {
-            waitTime += laneOrder[i].greenTime;
-          }
-        } else {
-          // This lane comes before current (wrap around)
-          for (let i = currentPos + 1; i < laneOrder.length; i++) {
-            waitTime += laneOrder[i].greenTime;
-          }
-          for (let i = 0; i < thisPos; i++) {
-            waitTime += laneOrder[i].greenTime;
-          }
+        let pos = currentPosition;
+        
+        // Sum up green times of all lanes that will go before this one
+        while (pos !== lanePosition) {
+          waitTime += laneOrder[pos % laneOrder.length].greenTime;
+          pos = (pos + 1) % laneOrder.length;
         }
         
-        return { ...lane, waitingTime: waitTime, greenDuration };
-      }));
+        return waitTime;
+      });
+
+      // Set initial green durations and waiting times
+      setLanes(prev => prev.map((lane, idx) => ({
+        ...lane,
+        waitingTime: newWaitTimes[idx],
+        greenDuration: laneOrder.find(item => item.idx === idx)?.greenTime || 0,
+      })));
 
       setCurrentGreenLane(currentLaneIdx + 1);
 
-      // Calculate average wait time from all lanes with vehicles
-      const lanesWithVehicles = lanes.filter(lane => lane.vehicleCount > 0);
-      if (lanesWithVehicles.length > 0) {
-        const totalWait = lanesWithVehicles.reduce((sum, lane, idx) => {
-          if (idx === currentLaneIdx) return sum;
-          const laneInfo = laneOrder.find(item => item.idx === idx);
-          return sum + (laneInfo ? currentGreenTime : 0);
-        }, 0);
-        setAvgWaitTime(Math.round(totalWait / lanesWithVehicles.length));
-      }
+      const totalWait = newWaitTimes.reduce((sum, time) => sum + time, 0);
+      setAvgWaitTime(Math.round(totalWait / lanes.length));
       
       // Throughput calculation based on half-clearance strategy
       const clearingRate = lanes[currentLaneIdx].hasEmergency ? 2.0 : 3.0;
       const halfVehicles = Math.ceil(lanes[currentLaneIdx].vehicleCount / 2);
       setThroughput(prev => prev + halfVehicles);
 
-      // Countdown mechanism - automatically switch after clearing target % of vehicles
+      // Countdown mechanism - automatically switch after clearing half the vehicles
       let remainingTime = currentGreenTime;
       const initialVehicleCount = lanes[currentLaneIdx].vehicleCount;
       const initialCongestion = lanes[currentLaneIdx].congestionLevel;
-      const isEmergencyLane = lanes[currentLaneIdx].hasEmergency;
-      const clearanceRatio = isEmergencyLane ? 0.75 : 0.5; // Emergency: 75%, Regular: 50%
-      const targetVehiclesToClear = Math.ceil(initialVehicleCount * clearanceRatio);
+      const targetVehiclesToClear = Math.ceil(initialVehicleCount / 2); // Clear 50%
       
       const countdownInterval = setInterval(() => {
         remainingTime--;
@@ -254,7 +235,7 @@ const Index = () => {
             const vehiclesMoved = Math.floor(elapsedTime / clearingRate);
             const vehiclesRemaining = Math.max(0, initialVehicleCount - vehiclesMoved);
             
-            // AUTO-SWITCH: If we've cleared target % of vehicles, end the green phase early
+            // AUTO-SWITCH: If we've cleared 50% of vehicles, end the green phase early
             if (vehiclesMoved >= targetVehiclesToClear && remainingTime > 2) {
               remainingTime = 2; // Give 2 seconds before switching
             }
@@ -279,11 +260,14 @@ const Index = () => {
               vehicleCount: vehiclesRemaining,
               congestionLevel: newCongestion
             };
-          } else {
-            // Other lanes reduce waiting time by 1 second
-            return { ...lane, waitingTime: Math.max(0, lane.waitingTime - 1) };
+          } else if (lane.waitingTime > 0) {
+            // Other lanes only reduce waiting time, no vehicle movement
+            return { ...lane, waitingTime: lane.waitingTime - 1 };
           }
+          return lane;
         }));
+
+        setAvgWaitTime(prev => Math.max(0, prev - 1));
         
         // When countdown reaches 0, change signal lights
         if (remainingTime <= 0) {
