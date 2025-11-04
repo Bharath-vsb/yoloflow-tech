@@ -17,38 +17,41 @@ export const OptimizationPanel = ({
   throughput,
 }: OptimizationPanelProps) => {
   return (
-    <Card className="p-6 space-y-6 bg-card border-border">
+    <Card className="p-8 space-y-8 glass-card glow-border shadow-glow">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Genetic Algorithm Optimization</h2>
-        <Badge variant={isOptimizing ? "default" : "secondary"} className="flex items-center gap-2">
-          <Activity className={`w-4 h-4 ${isOptimizing ? "animate-pulse" : ""}`} />
-          {isOptimizing ? "Optimizing..." : "Ready"}
+        <h2 className="text-3xl font-black text-gradient">Optimization Metrics</h2>
+        <Badge 
+          variant={isOptimizing ? "default" : "secondary"} 
+          className="flex items-center gap-2 px-4 py-2 text-sm font-bold backdrop-blur-sm"
+        >
+          <Activity className={`w-5 h-5 ${isOptimizing ? "animate-spin" : ""}`} />
+          {isOptimizing ? "Active" : "Ready"}
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2 p-4 bg-secondary rounded-lg">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-3 p-6 glass-card glow-border rounded-xl hover:shadow-glow transition-all">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Zap className="w-4 h-4" />
-            <span className="text-sm">Generation</span>
+            <Zap className="w-5 h-5 text-primary" />
+            <span className="text-sm font-semibold">Generation</span>
           </div>
-          <p className="text-3xl font-bold text-primary">{generation}</p>
+          <p className="text-4xl font-black text-primary drop-shadow-lg">{generation}</p>
         </div>
 
-        <div className="space-y-2 p-4 bg-secondary rounded-lg">
+        <div className="space-y-3 p-6 glass-card glow-border rounded-xl hover:shadow-glow transition-all">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm">Avg Wait Time</span>
+            <Clock className="w-5 h-5 text-accent" />
+            <span className="text-sm font-semibold">Avg Wait Time</span>
           </div>
-          <p className="text-3xl font-bold text-foreground">{avgWaitTime.toFixed(1)}s</p>
+          <p className="text-4xl font-black text-foreground drop-shadow-lg">{avgWaitTime.toFixed(1)}s</p>
         </div>
 
-        <div className="space-y-2 p-4 bg-secondary rounded-lg">
+        <div className="space-y-3 p-6 glass-card glow-border rounded-xl hover:shadow-glow transition-all">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Activity className="w-4 h-4" />
-            <span className="text-sm">Throughput</span>
+            <Activity className="w-5 h-5 text-secondary" />
+            <span className="text-sm font-semibold">Throughput</span>
           </div>
-          <p className="text-3xl font-bold text-foreground">{throughput}</p>
+          <p className="text-4xl font-black text-foreground drop-shadow-lg">{throughput}</p>
         </div>
       </div>
 

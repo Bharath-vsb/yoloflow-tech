@@ -76,10 +76,10 @@ export const TrafficLane = ({
   };
 
   return (
-    <Card className={`relative p-4 space-y-4 bg-card transition-all ${
+    <Card className={`relative p-6 space-y-4 transition-all backdrop-blur-sm ${
       hasEmergency 
-        ? "border-4 border-emergency shadow-2xl shadow-emergency/50 ring-4 ring-emergency/40 animate-pulse" 
-        : "border-border hover:border-primary/50"
+        ? "glass-card border-4 border-emergency shadow-2xl shadow-emergency/50 ring-4 ring-emergency/40 animate-pulse" 
+        : "glass-card glow-border hover:shadow-glow"
     }`}>
       {/* Emergency Alert Banner - Top of card */}
       {hasEmergency && (
@@ -91,18 +91,21 @@ export const TrafficLane = ({
       )}
       
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold text-foreground">Lane {laneNumber}</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-xl font-black text-foreground">Lane {laneNumber}</h3>
           {hasEmergency && (
-            <Badge variant="destructive" className="bg-emergency animate-pulse gap-1 text-xs font-bold">
-              <AlertTriangle className="w-3 h-3" />
-              PRIORITY LANE
+            <Badge variant="destructive" className="bg-emergency animate-pulse gap-1 text-xs font-black px-3 py-1">
+              <AlertTriangle className="w-4 h-4" />
+              PRIORITY
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`w-4 h-4 rounded-full ${getSignalColor()} ${signalState === "green" ? "animate-pulse" : ""}`} />
-          <Badge variant={signalState === "green" ? "default" : signalState === "yellow" ? "secondary" : "destructive"}>
+        <div className="flex items-center gap-3">
+          <div className={`w-5 h-5 rounded-full ${getSignalColor()} ${signalState === "green" ? "animate-pulse shadow-lg" : ""}`} />
+          <Badge 
+            variant={signalState === "green" ? "default" : signalState === "yellow" ? "secondary" : "destructive"}
+            className="font-black px-3 py-1"
+          >
             {signalState.toUpperCase()}
           </Badge>
         </div>

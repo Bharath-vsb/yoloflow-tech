@@ -3,6 +3,7 @@ import { TrafficLane } from "@/components/TrafficLane";
 import { OptimizationPanel } from "@/components/OptimizationPanel";
 import { OptimizationResults } from "@/components/OptimizationResults";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Play, RotateCcw, Activity, ArrowRight, AlertTriangle } from "lucide-react";
@@ -335,12 +336,17 @@ const Index = () => {
     <div className="min-h-screen p-6 animate-fade-in">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="text-center space-y-3 animate-fade-in-up">
-          <h1 className="text-5xl md:text-6xl font-bold text-gradient mb-3">
-            AI Traffic Management
+        <div className="text-center space-y-4 animate-fade-in-up py-8">
+          <div className="inline-block mb-4">
+            <Badge className="bg-primary/20 text-primary border-primary/30 px-4 py-2 text-sm font-semibold backdrop-blur-sm">
+              ✨ AI-Powered Traffic Optimization
+            </Badge>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-black text-gradient mb-4 tracking-tight leading-tight">
+            Smart Traffic Control
           </h1>
-          <p className="text-lg text-muted-foreground">
-            Smart vehicle detection with genetic algorithm optimization
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-medium">
+            Advanced vehicle detection with genetic algorithm optimization for intelligent traffic management
           </p>
         </div>
           {laneCount !== null && (
@@ -349,18 +355,18 @@ const Index = () => {
                 onClick={startOptimization}
                 disabled={isOptimizing || isAnalyzing || lanes.every(lane => lane.image === null)}
                 size="lg"
-                className="gradient-primary shadow-glow hover:scale-105 transition-all duration-300 font-semibold px-8"
+                className="gradient-primary shadow-glow hover:scale-105 transition-all duration-300 font-bold px-10 py-6 text-base"
               >
-                <Play className="w-5 h-5 mr-2" />
+                <Play className="w-6 h-6 mr-2" />
                 {isOptimizing ? "Optimizing Traffic Flow..." : "Start Traffic Optimization"}
               </Button>
               <Button 
                 onClick={reset} 
                 variant="outline" 
                 size="lg" 
-                className="shadow-card hover:scale-105 transition-all duration-300 font-semibold px-8"
+                className="backdrop-blur-sm hover:scale-105 transition-all duration-300 font-bold px-10 py-6 text-base"
               >
-                <RotateCcw className="w-5 h-5 mr-2" />
+                <RotateCcw className="w-6 h-6 mr-2" />
                 Reset
               </Button>
             </div>
@@ -368,20 +374,20 @@ const Index = () => {
 
         {/* Lane Selection */}
         {laneCount === null ? (
-          <Card className="gradient-card shadow-card border-border/50 p-12 animate-scale-in">
-            <div className="text-center space-y-8">
+          <Card className="glass-card shadow-card p-16 animate-scale-in glow-border">
+            <div className="text-center space-y-10">
               <div>
-                <h2 className="text-3xl font-bold mb-3 text-gradient">Select Traffic Lanes</h2>
-                <p className="text-muted-foreground text-lg">Choose between 2 to 4 lanes for monitoring</p>
+                <h2 className="text-4xl font-black mb-4 text-gradient">Configure Your System</h2>
+                <p className="text-muted-foreground text-xl font-medium">Select the number of traffic lanes to monitor</p>
               </div>
-              <div className="flex justify-center gap-6">
+              <div className="flex justify-center gap-8">
                 {[2, 3, 4].map((count) => (
                   <Button
                     key={count}
                     onClick={() => initializeLanes(count)}
                     size="lg"
                     variant="outline"
-                    className="h-32 w-32 text-4xl font-bold hover:scale-110 hover:shadow-glow transition-all duration-300 gradient-card border-2 border-primary/30"
+                    className="h-40 w-40 text-5xl font-black hover:scale-110 hover:shadow-glow transition-all duration-300 glass-card glow-border"
                   >
                     {count}
                   </Button>
@@ -393,33 +399,33 @@ const Index = () => {
           <>
             {/* Emergency Alert Banner */}
             {lanes.some(lane => lane.hasEmergency && lane.vehicleCount > 0) && (
-              <Card className="p-8 bg-gradient-to-r from-emergency to-emergency/80 border-4 border-white shadow-glow animate-pulse-glow">
-                <div className="flex items-center justify-center gap-6">
-                  <div className="w-5 h-5 rounded-full bg-white animate-ping" />
-                  <AlertTriangle className="w-10 h-10 text-white" />
+              <Card className="p-10 bg-gradient-to-r from-emergency via-emergency to-emergency/80 border-4 border-white shadow-glow animate-pulse-glow backdrop-blur-sm">
+                <div className="flex items-center justify-center gap-8">
+                  <div className="w-6 h-6 rounded-full bg-white animate-ping" />
+                  <AlertTriangle className="w-12 h-12 text-white drop-shadow-lg" />
                   <div className="flex flex-col">
-                    <span className="text-2xl font-black text-white tracking-wider drop-shadow-lg">
+                    <span className="text-3xl font-black text-white tracking-wider drop-shadow-lg">
                       🚨 EMERGENCY VEHICLE DETECTED 🚨
                     </span>
-                    <span className="text-base text-white/95">
+                    <span className="text-lg text-white/95 font-semibold">
                       Priority lane clearance in progress - All other lanes on hold
                     </span>
                   </div>
-                  <AlertTriangle className="w-10 h-10 text-white" />
-                  <div className="w-5 h-5 rounded-full bg-white animate-ping" />
+                  <AlertTriangle className="w-12 h-12 text-white drop-shadow-lg" />
+                  <div className="w-6 h-6 rounded-full bg-white animate-ping" />
                 </div>
               </Card>
             )}
 
             {/* Current Status */}
             {isOptimizing && (
-              <Card className="p-6 gradient-card shadow-card border-primary/30 animate-fade-in">
+              <Card className="p-8 glass-card shadow-glow glow-border animate-fade-in">
                 <div className="flex items-center justify-center gap-4">
-                  <Activity className="w-6 h-6 animate-spin text-primary" />
-                  <span className="font-semibold text-lg">
-                    Currently Active: Lane {currentGreenLane} <span className="text-signal-green">(GREEN)</span>
+                  <Activity className="w-7 h-7 animate-spin text-primary drop-shadow-lg" />
+                  <span className="font-bold text-xl">
+                    Currently Active: Lane {currentGreenLane} <span className="text-signal-green font-black">(GREEN)</span>
                     {lanes[currentGreenLane - 1]?.hasEmergency && (
-                      <span className="text-emergency ml-2">- EMERGENCY PRIORITY</span>
+                      <span className="text-emergency ml-2 font-black animate-pulse">⚡ EMERGENCY PRIORITY</span>
                     )}
                   </span>
                 </div>
